@@ -1,0 +1,8 @@
+ndx-spark-model/target/*
+ndx-spark-pcap/target/*
+ndx-spark-pshark/target/*
+ndx-spark-tshark/target/*
+ndx-spark-shell/target/*
+*.class
+.idea/*
+*.iml
