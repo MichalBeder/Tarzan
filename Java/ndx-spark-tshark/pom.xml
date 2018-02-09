@@ -25,6 +25,12 @@
 			<version>2.6.0-cdh5.5.2</version>
 			<scope>provided</scope>
 		</dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_2.10</artifactId>
+            <version>2.2.0</version>
+            <scope>provided</scope>
+        </dependency>
 		<dependency>
 			<groupId>commons-logging</groupId>
 			<artifactId>commons-logging</artifactId>
@@ -36,6 +42,17 @@
 			<artifactId>junit</artifactId>
 			<version>4.4</version>
 			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-core</artifactId>
+			<version>2.6.0-mr1-cdh5.5.2</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.ndx.spark</groupId>
+			<artifactId>ndx-spark-model</artifactId>
+			<version>0.9-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 </project>
