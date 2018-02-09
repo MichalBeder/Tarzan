@@ -11,16 +11,17 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class PcapRecordReader implements RecordReader<LongWritable, ObjectWritable> {
-    PcapReader pcapReader;
-    Iterator<RawFrame> pcapReaderIterator;
-    Seekable baseStream;
-    DataInputStream stream;
-    Reporter reporter;
+    private PcapReader pcapReader;
+    private Iterator<RawFrame> pcapReaderIterator;
+    private Seekable baseStream;
+    private DataInputStream stream;
+    private Reporter reporter;
 
-    long packetCount = 0;
-    long start, end;
+    private long packetCount = 0;
+    private long start, end;
 
-    public PcapRecordReader(PcapReader pcapReader, long start, long end, Seekable baseStream, DataInputStream stream, Reporter reporter) throws IOException {
+    public PcapRecordReader(PcapReader pcapReader, long start, long end, Seekable baseStream, DataInputStream stream,
+                            Reporter reporter) throws IOException {
         this.pcapReader = pcapReader;
         this.baseStream = baseStream;
         this.stream = stream;

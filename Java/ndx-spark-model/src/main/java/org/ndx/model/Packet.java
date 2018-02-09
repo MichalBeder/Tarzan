@@ -10,9 +10,9 @@ import java.util.function.Consumer;
 import com.google.protobuf.ByteString;
 
 public class Packet extends HashMap<String, Object> {
-    private static final long serialVersionUID = 8723206921174160146L;
+    protected static final long serialVersionUID = 8723206921174160146L;
+    protected static Map<Integer, String> protocols;
     public static final Log LOG = LogFactory.getLog(Packet.class);
-	private static Map<Integer, String> protocols;
 	public static final String PROTOCOL_ICMP = "ICMP";
 	public static final String PROTOCOL_TCP = "TCP";
 	public static final String PROTOCOL_UDP = "UDP";
@@ -22,7 +22,9 @@ public class Packet extends HashMap<String, Object> {
 		protocols.put(1, PROTOCOL_ICMP);
 		protocols.put(6, PROTOCOL_TCP);
 		protocols.put(17, PROTOCOL_UDP);
-		protocols.put(44, PROTOCOL_FRAGMENT); // Using IPv4 fragment protocol number across protocols (see http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+        // Using IPv4 fragment protocol number across protocols
+        // (see http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+		protocols.put(44, PROTOCOL_FRAGMENT);
 	}
 	public static final String TIMESTAMP = "ts";
     public static final String TIMESTAMP_USEC = "ts_usec";
@@ -96,19 +98,17 @@ public class Packet extends HashMap<String, Object> {
 	public static final int TCP_HEADER_DATA_OFFSET = 12;
 	
 	public String getFlowString() {
-    	StringBuffer sb = new StringBuffer();
-		sb.append("[");
-		sb.append(this.get(Packet.PROTOCOL));
-		sb.append("@");
-		sb.append(this.get(Packet.SRC));
-		sb.append(":");
-		sb.append(this.get(Packet.SRC_PORT));
-		sb.append("->");
-		sb.append(this.get(Packet.DST));
-		sb.append(":");
-		sb.append(this.get(Packet.DST_PORT));
-		sb.append("]");
-		return sb.toString();
+		return "[" +
+				this.get(Packet.PROTOCOL) +
+				"@" +
+				this.get(Packet.SRC) +
+				":" +
+				this.get(Packet.SRC_PORT) +
+				"->" +
+				this.get(Packet.DST) +
+				":" +
+				this.get(Packet.DST_PORT) +
+				"]";
 	}
 
     public static FlowModel.FlowKey flowKeyParse(String flowkey)
@@ -137,9 +137,6 @@ public class Packet extends HashMap<String, Object> {
 		fb.setDestinationSelector(ByteString.copyFromUtf8(get(Packet.DST_PORT).toString() ));
 		return fb.build();
 	}
-
-
-
 
 	public String getSessionString()
 	{
@@ -176,21 +173,18 @@ public class Packet extends HashMap<String, Object> {
 			hiAddress = (String)get(Packet.SRC);
 			hiPort = (Integer)get(Packet.SRC_PORT);
 		}
-		
 
-		StringBuffer sb = new StringBuffer();
-		sb.append("[");
-		sb.append(this.get(Packet.PROTOCOL));
-		sb.append("@");
-		sb.append(loAddress);
-		sb.append(":");
-		sb.append(loPort);
-		sb.append("<->");
-		sb.append(hiAddress);
-		sb.append(":");
-		sb.append(hiPort);
-		sb.append("]");
-		return sb.toString();
+		return "[" +
+				this.get(Packet.PROTOCOL) +
+				"@" +
+				loAddress +
+				":" +
+				loPort +
+				"<->" +
+				hiAddress +
+				":" +
+				hiPort +
+				"]";
 	}
 
 	/**
@@ -233,9 +227,12 @@ public class Packet extends HashMap<String, Object> {
 
     public static Packet parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload)
     {
-        return parsePacket(frame.getLinkTypeValue(), frame.getTimeStamp() , frame.getFrameNumber(), frame.getData().toByteArray(), 65535, processPayload);   
+        return parsePacket(frame.getLinkTypeValue(), frame.getTimeStamp() , frame.getFrameNumber(),
+				frame.getData().toByteArray(), 65535, processPayload);
     }
-    public static Packet parsePacket(int linkType, long timestamp, int number, byte[] packetData, int snapLen, Consumer<PacketPayload> processPayload)
+
+    public static Packet parsePacket(int linkType, long timestamp, int number, byte[] packetData,
+									 int snapLen, Consumer<PacketPayload> processPayload)
     {
 		Packet packet = new Packet();
 		packet.put(Packet.TIMESTAMP, timestamp);
@@ -269,8 +266,9 @@ public class Packet extends HashMap<String, Object> {
 			    int payloadDataStart = ipStart + ipHeaderLen;
 			    int payloadLength = totalLength - ipHeaderLen;
 			    byte[] packetPayload = packet.readPayload(packetData, payloadDataStart, payloadLength, snapLen);
-                if (PROTOCOL_UDP == protocol || PROTOCOL_TCP == protocol) {
-				    packetPayload = packet.buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart, ipHeaderLen, totalLength, snapLen);
+                if (PROTOCOL_UDP.equals(protocol) || PROTOCOL_TCP.equals(protocol)) {
+				    packetPayload = packet.buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart,
+                            ipHeaderLen, totalLength, snapLen);
 				}
 			
 			    packet.put(Packet.LEN, packetPayload.length);
@@ -340,13 +338,14 @@ public class Packet extends HashMap<String, Object> {
     public static String convertProtocolIdentifier(int identifier) {
 		return protocols.get(identifier);
 	}
+
 	private static void buildInternetProtocolV4Packet(Packet packet, byte[] packetData, int ipStart) {
-		long id = new Long(BitConverter.convertShort(packetData, ipStart + IP_ID_OFFSET));
+		long id = (long) BitConverter.convertShort(packetData, ipStart + IP_ID_OFFSET);
 		packet.put(Packet.ID, id);
 
 		int flags = packetData[ipStart + IP_FLAGS_OFFSET] & 0xE0;
-		packet.put(Packet.IP_FLAGS_DF, (flags & 0x40) == 0 ? false : true);
-		packet.put(Packet.IP_FLAGS_MF, (flags & 0x20) == 0 ? false : true);
+		packet.put(Packet.IP_FLAGS_DF, (flags & 0x40) != 0);
+		packet.put(Packet.IP_FLAGS_MF, (flags & 0x20) != 0);
 
 		long fragmentOffset = (BitConverter.convertShort(packetData, ipStart + IP_FRAGMENT_OFFSET) & 0x1FFF) * 8;
 		packet.put(Packet.FRAGMENT_OFFSET, fragmentOffset);
@@ -391,9 +390,10 @@ public class Packet extends HashMap<String, Object> {
 			packet.put(Packet.ID, id);
 
 			int flags = packetData[ipStart + IPV6_HEADER_SIZE + IPV6_FLAGS_OFFSET] & 0x7;
-			packet.put(Packet.IPV6_FLAGS_M, (flags & 0x1) == 0 ? false : true);
+			packet.put(Packet.IPV6_FLAGS_M, (flags & 0x1) != 0);
 
-			long fragmentOffset = BitConverter.convertShort(packetData, ipStart + IPV6_HEADER_SIZE + IPV6_FRAGMENT_OFFSET) & 0xFFF8;
+			long fragmentOffset = BitConverter.convertShort(packetData, ipStart + IPV6_HEADER_SIZE +
+                    IPV6_FRAGMENT_OFFSET) & 0xFFF8;
 			packet.put(Packet.FRAGMENT_OFFSET, fragmentOffset);
 
 			packet.put(Packet.FRAGMENT, true);
@@ -414,9 +414,12 @@ public class Packet extends HashMap<String, Object> {
 	 * packetData is the entire layer 2 packet read from pcap
 	 * ipStart is the start of the IP packet in packetData
 	 */
-	private byte[] buildTcpAndUdpPacket(byte[] packetData, int ipProtocolHeaderVersion, int ipStart, int ipHeaderLen, int totalLength, int snapLen) {
-		this.put(Packet.SRC_PORT, BitConverter.convertShort(packetData, ipStart + ipHeaderLen + PROTOCOL_HEADER_SRC_PORT_OFFSET));
-		this.put(Packet.DST_PORT, BitConverter.convertShort(packetData, ipStart + ipHeaderLen + PROTOCOL_HEADER_DST_PORT_OFFSET));
+	private byte[] buildTcpAndUdpPacket(byte[] packetData, int ipProtocolHeaderVersion, int ipStart,
+                                        int ipHeaderLen, int totalLength, int snapLen) {
+		this.put(Packet.SRC_PORT, BitConverter.convertShort(packetData,
+                ipStart + ipHeaderLen + PROTOCOL_HEADER_SRC_PORT_OFFSET));
+		this.put(Packet.DST_PORT, BitConverter.convertShort(packetData,
+                ipStart + ipHeaderLen + PROTOCOL_HEADER_DST_PORT_OFFSET));
 
 		int tcpOrUdpHeaderSize;
 		final String protocol = (String)this.get(Packet.PROTOCOL);
@@ -438,22 +441,24 @@ public class Packet extends HashMap<String, Object> {
 			this.put(Packet.TCP_HEADER_LENGTH, tcpOrUdpHeaderSize);
 
 			// Store the sequence and acknowledgement numbers --M
-			this.put(Packet.TCP_SEQ, BitConverter.convertUnsignedInt(packetData, ipStart + ipHeaderLen + PROTOCOL_HEADER_TCP_SEQ_OFFSET));
-			this.put(Packet.TCP_ACK, BitConverter.convertUnsignedInt(packetData, ipStart + ipHeaderLen + PROTOCOL_HEADER_TCP_ACK_OFFSET));
+			this.put(Packet.TCP_SEQ, BitConverter.convertUnsignedInt(packetData, ipStart + ipHeaderLen +
+                    PROTOCOL_HEADER_TCP_SEQ_OFFSET));
+			this.put(Packet.TCP_ACK, BitConverter.convertUnsignedInt(packetData, ipStart + ipHeaderLen +
+                    PROTOCOL_HEADER_TCP_ACK_OFFSET));
 
 			// Flags stretch two bytes starting at the TCP header offset
-			int flags = BitConverter.convertShort(new byte[] { packetData[ipStart + ipHeaderLen + TCP_HEADER_DATA_OFFSET],
-			                                                     packetData[ipStart + ipHeaderLen + TCP_HEADER_DATA_OFFSET + 1] })
-			                                       & 0x1FF; // Filter first 7 bits. First 4 are the data offset and the other 3 reserved for future use.
-												   this.put(Packet.TCP_FLAG_NS, (flags & 0x100) == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_CWR, (flags & 0x80) == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_ECE, (flags & 0x40) == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_URG, (flags & 0x20) == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_ACK, (flags & 0x10) == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_PSH, (flags & 0x8)  == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_RST, (flags & 0x4)  == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_SYN, (flags & 0x2)  == 0 ? false : true);
-												   this.put(Packet.TCP_FLAG_FIN, (flags & 0x1)  == 0 ? false : true);
+			int flags = BitConverter.convertShort(new byte[] { packetData[ipStart + ipHeaderLen +
+                    TCP_HEADER_DATA_OFFSET], packetData[ipStart + ipHeaderLen + TCP_HEADER_DATA_OFFSET + 1] })
+                       & 0x1FF; // Filter first 7 bits. First 4 are the data offset and the other 3 reserved for future use.
+                       this.put(Packet.TCP_FLAG_NS, (flags & 0x100) != 0);
+                       this.put(Packet.TCP_FLAG_CWR, (flags & 0x80) != 0);
+                       this.put(Packet.TCP_FLAG_ECE, (flags & 0x40) != 0);
+                       this.put(Packet.TCP_FLAG_URG, (flags & 0x20) != 0);
+                       this.put(Packet.TCP_FLAG_ACK, (flags & 0x10) != 0);
+                       this.put(Packet.TCP_FLAG_PSH, (flags & 0x8) != 0);
+                       this.put(Packet.TCP_FLAG_RST, (flags & 0x4) != 0);
+                       this.put(Packet.TCP_FLAG_SYN, (flags & 0x2) != 0);
+                       this.put(Packet.TCP_FLAG_FIN, (flags & 0x1) != 0);
 			// The TCP payload size is calculated by taking the "Total Length" from the IP header (ip.len) 
 			// and then substract the "IP header length" (ip.hdr_len) and the "TCP header length" (tcp.hdr_len).
 			int tcpLen = totalLength-(tcpOrUdpHeaderSize + ipHeaderLen);
@@ -464,8 +469,7 @@ public class Packet extends HashMap<String, Object> {
 
 		int payloadDataStart = ipStart + ipHeaderLen + tcpOrUdpHeaderSize;
 		int payloadLength = totalLength - ipHeaderLen - tcpOrUdpHeaderSize;
-		byte[] data = readPayload(packetData, payloadDataStart, payloadLength, snapLen);
-		return data;
+        return readPayload(packetData, payloadDataStart, payloadLength, snapLen);
     }
     private int getUdpChecksum(byte[] packetData, int ipStart, int ipHeaderLen) {
 		/*
@@ -481,8 +485,8 @@ public class Packet extends HashMap<String, Object> {
 		 */
 		byte data[] = new byte[packetData.length - ipStart - ipHeaderLen + 12];
 		int sum = 0;
-		System.arraycopy(packetData, ipStart + IP_SRC_OFFSET,      data, 0, 4);
-		System.arraycopy(packetData, ipStart + IP_DST_OFFSET,      data, 4, 4);
+		System.arraycopy(packetData, ipStart + IP_SRC_OFFSET, data, 0, 4);
+		System.arraycopy(packetData, ipStart + IP_DST_OFFSET, data, 4, 4);
 		data[8] = 0;
 		data[9] = 17;	/* IPPROTO_UDP */
 		System.arraycopy(packetData, ipStart + ipHeaderLen + 4,    data, 10, 2);
@@ -499,8 +503,7 @@ public class Packet extends HashMap<String, Object> {
 	}
 
 	private int getUdpLength(byte[] packetData, int ipStart, int ipHeaderLen) {
-		int udpLen = BitConverter.convertShort(packetData, ipStart + ipHeaderLen + 4);
-		return udpLen;
+        return BitConverter.convertShort(packetData, ipStart + ipHeaderLen + 4);
     }
     
     private byte[] readPayload(byte[] packetData, int payloadDataStart, int payloadLength, int snapLen) {

@@ -107,9 +107,11 @@ public class PcapReader implements Iterable<RawFrame> {
 		this.is = null;
 		linkType = lt;
 	}
+
 	static long UnixBaseTicks = 621355968000000000L; 
 	static long TicksPerSecond = 10000000L;
-	static long TickPerMicroseconds = 10L; 
+	static long TickPerMicroseconds = 10L;
+
 	private RawFrame nextRawFrame() {
 		pcapRawFrameHeader = new byte[PACKET_HEADER_SIZE];
 		if (!readBytes(pcapRawFrameHeader))
@@ -166,8 +168,6 @@ public class PcapReader implements Iterable<RawFrame> {
 		return null;
 	}
 
-	
-
 	/**
 	 * Reads the RawFrame payload and returns it as byte[].
 	 * If the payload could not be read an empty byte[] is returned.
@@ -181,11 +181,13 @@ public class PcapReader implements Iterable<RawFrame> {
 			return new byte[0];
 		}
 		if (payloadDataStart > rawFrameData.length) {
-			LOG.warn("Payload start (" + payloadDataStart + ") is larger than RawFrame data (" + rawFrameData.length + "). Returning empty payload.");
+			LOG.warn("Payload start (" + payloadDataStart + ") is larger than RawFrame data ("
+					+ rawFrameData.length + "). Returning empty payload.");
 			return new byte[0];
 		}
 		if (payloadDataStart + payloadLength > rawFrameData.length) {
-			if (payloadDataStart + payloadLength <= snapLen) // Only corrupted if it was not because of a reduced snap length
+            // Only corrupted if it was not because of a reduced snap length
+			if (payloadDataStart + payloadLength <= snapLen)
 				LOG.warn("Payload length field value (" + payloadLength + ") is larger than available RawFrame data (" 
 						+ (rawFrameData.length - payloadDataStart) 
 						+ "). RawFrame may be corrupted. Returning only available data.");
@@ -226,9 +228,7 @@ public class PcapReader implements Iterable<RawFrame> {
 		@Override
 		public boolean hasNext() {
 			fetchNext();
-			if (next != null)
-				return true;			
-			return false;
+			return next != null;
 		}
 
 		@Override

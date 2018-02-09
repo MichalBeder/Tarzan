@@ -25,12 +25,13 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 
 public class PcapInputFormat extends FileInputFormat<LongWritable, ObjectWritable> {
-	static final String READER_CLASS_PROPERTY = "ndx.spark.pcap.reader.class";
+	private static final String READER_CLASS_PROPERTY = "ndx.spark.pcap.reader.class";
 
 	public static final Log LOG = LogFactory.getLog(PcapInputFormat.class);
 
 	@Override
-	public RecordReader<LongWritable, ObjectWritable> getRecordReader(InputSplit split, JobConf config, Reporter reporter) throws IOException {
+	public RecordReader<LongWritable, ObjectWritable> getRecordReader(InputSplit split, JobConf config,
+																	  Reporter reporter) throws IOException {
 		FileSplit fileSplit = (FileSplit)split;
 		Path path = fileSplit.getPath();
 		LOG.info("Reading PCAP: " + path.toString());
@@ -39,7 +40,8 @@ public class PcapInputFormat extends FileInputFormat<LongWritable, ObjectWritabl
 		return initPcapRecordReader(path, start, length, reporter, config);
 	}
 
-	public static PcapRecordReader initPcapRecordReader(Path path, long start, long length, Reporter reporter, Configuration conf) throws IOException {
+	public static PcapRecordReader initPcapRecordReader(Path path, long start, long length, Reporter reporter,
+                                                        Configuration conf) throws IOException {
 	    FileSystem fs = path.getFileSystem(conf);
 	    FSDataInputStream baseStream = fs.open(path);
 	    DataInputStream stream = baseStream;
@@ -54,8 +56,10 @@ public class PcapInputFormat extends FileInputFormat<LongWritable, ObjectWritabl
 
 	public static PcapReader initPcapReader(DataInputStream stream, Configuration conf) {
 		try {
-			Class<? extends PcapReader> pcapReaderClass = conf.getClass(READER_CLASS_PROPERTY, PcapReader.class, PcapReader.class);
-			Constructor<? extends PcapReader> pcapReaderConstructor = pcapReaderClass.getConstructor(DataInputStream.class);
+			Class<? extends PcapReader> pcapReaderClass = conf.getClass(READER_CLASS_PROPERTY, PcapReader.class,
+					PcapReader.class);
+			Constructor<? extends PcapReader> pcapReaderConstructor =
+                    pcapReaderClass.getConstructor(DataInputStream.class);
 			return pcapReaderConstructor.newInstance(stream);
 		} catch (Exception e) {
 			e.printStackTrace();

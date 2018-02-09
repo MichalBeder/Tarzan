@@ -9,7 +9,7 @@ import org.ndx.model.PacketModel.RawFrame;
 import org.ndx.model.Statistics;
 
 val frames = sc.hadoopFile("hdfs://neshpc1.fit.vutbr.cz/user/rysavy/cap/*.cap", 
-classOf[org.ndx.spark.pcap.PcapInputFormat], 
+classOf[org.ndx.pcap.PcapInputFormat], 
 classOf[org.apache.hadoop.io.LongWritable], 
 classOf[org.apache.hadoop.io.ObjectWritable])
 
