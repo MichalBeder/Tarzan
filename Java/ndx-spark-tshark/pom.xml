@@ -54,5 +54,10 @@
 			<artifactId>ndx-spark-model</artifactId>
 			<version>0.9-SNAPSHOT</version>
 		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>org.ndx.spark</groupId>
+            <artifactId>ndx-spark-pcap</artifactId>
+            <version>0.9-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>
