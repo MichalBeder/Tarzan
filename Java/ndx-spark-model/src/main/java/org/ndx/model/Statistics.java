@@ -5,23 +5,17 @@ import org.ndx.model.FlowModel.FlowKey;
 import java.util.Date;
 
 public class Statistics {
-    private static long UNIX_BASE_TICKS = 621355968000000000L;
-    private static long TICK_PER_MICROSECONDS = 10L;
-    static long TICK_PER_MILLISECONDS = 10000L;
-    private static long TICK_PER_SECONDS = 10000000L;
+    private static long MILISECONDS_TO_SECONDS = 1000L;
 
     private static java.text.DecimalFormat df = new java.text.DecimalFormat("#.###");
 
     public static Date ticksToDate(long ticks) {
-            long us = (ticks - UNIX_BASE_TICKS) / TICK_PER_MICROSECONDS;
-            return new Date(us/1000);
+        return new Date(ticks);
     }
 
-    public static float ticksToSeconds(long ticks)
-    {
-        return (((float)ticks) / (float) TICK_PER_SECONDS);
+    public static double timestampToSeconds(long timestamp) {
+        return (((double)timestamp) / (double) MILISECONDS_TO_SECONDS);
     }
-
  
     public static FlowAttributes merge (FlowAttributes x, FlowAttributes y) {
         FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
@@ -36,26 +30,10 @@ public class Statistics {
     }
 
     public static FlowAttributes fromPacket(Packet p) {
-        Long first = ((Number)p.get(Packet.TIMESTAMP)).longValue();
-        Long last = ((Number)p.get(Packet.TIMESTAMP)).longValue();
-        Long octets = ((Number)p.get(Packet.LEN)).longValue();
+        Long first = ((Number)p.get(PcapPacket.TIMESTAMP)).longValue();
+        Long last = ((Number)p.get(PcapPacket.TIMESTAMP)).longValue();
+        Long octets = ((Number)p.get(PcapPacket.LEN)).longValue();
       
-        FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
-        builder.setFirstSeen(first);
-        builder.setLastSeen(last);
-        builder.setPackets(1);
-        builder.setOctets(octets);
-        builder.setMaximumPayloadSize(octets.intValue());
-        builder.setMinimumPayloadSize(octets.intValue());
-        builder.setMeanPayloadSize(octets.intValue());
-        return builder.build();
-    }
-
-    public static FlowAttributes fromPacket(JsonPacket p) {
-        Long first = ((Number)p.get(Packet.TIMESTAMP)).longValue();
-        Long last = ((Number)p.get(Packet.TIMESTAMP)).longValue();
-        Long octets = ((Number)p.get(Packet.LEN)).longValue();
-
         FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
         builder.setFirstSeen(first);
         builder.setLastSeen(last);
@@ -73,7 +51,7 @@ public class Statistics {
      
         Date last = ticksToDate(attributes.getLastSeen());
         float diff = ((float)(last.getTime() - first.getTime()))/1000;
-        FlowKey fkey = Packet.flowKeyParse(flowkey);
+        FlowKey fkey = PcapPacket.flowKeyParse(flowkey);
         String fkeystr = String.format("%5s %20s -> %20s ", 
             fkey.getProtocol().toStringUtf8(), 
             fkey.getSourceAddress().toStringUtf8() + ":" + fkey.getSourceSelector().toStringUtf8(), 

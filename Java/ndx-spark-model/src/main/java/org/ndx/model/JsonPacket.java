@@ -1,104 +1,14 @@
 package org.ndx.model;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
-public class JsonPacket extends HashMap<String, Object> {
-    protected static final long serialVersionUID = 8723206921174160147L;
-
-    private static long UNIX_BASE_TICKS = 621355968000000000L;
-    private static long TICKS_PER_MILLISECOND = 10000L;
-
-    protected static Map<Integer, String> protocols;
-    public static final Log LOG = LogFactory.getLog(JsonPacket.class);
-    public static final String PROTOCOL_ICMP = "ICMP";
-    public static final String PROTOCOL_TCP = "TCP";
-    public static final String PROTOCOL_UDP = "UDP";
-    public static final String PROTOCOL_FRAGMENT = "Fragment";
-    static {
-        protocols = new HashMap<Integer, String>();
-        protocols.put(1, PROTOCOL_ICMP);
-        protocols.put(6, PROTOCOL_TCP);
-        protocols.put(17, PROTOCOL_UDP);
-        protocols.put(44, PROTOCOL_FRAGMENT);
-    }
-    public static final String TIMESTAMP = "ts";
-    public static final String TIMESTAMP_USEC = "ts_usec";
-    public static final String TIMESTAMP_MICROS = "ts_micros";
-    public static final String NUMBER = "number";
-
-    public static final String TTL = "ttl";
-    public static final String IP_VERSION = "ip_version";
-    public static final String IP_HEADER_LENGTH = "ip_header_length";
-    public static final String IP_FLAGS_DF = "ip_flags_df";
-    public static final String IP_FLAGS_MF = "ip_flags_mf";
-    public static final String IPV6_FLAGS_M = "ipv6_flags_m";
-    public static final String FRAGMENT_OFFSET = "fragment_offset";
-    public static final String FRAGMENT = "fragment";
-    public static final String LAST_FRAGMENT = "last_fragment";
-    public static final String PROTOCOL = "protocol";
-    public static final String SRC = "src";
-    public static final String DST = "dst";
-    public static final String ID = "id";
-    public static final String SRC_PORT = "src_port";
-    public static final String DST_PORT = "dst_port";
-    public static final String TCP_HEADER_LENGTH = "tcp_header_length";
-    public static final String TCP_SEQ = "tcp_seq";
-    public static final String TCP_ACK = "tcp_ack";
-    public static final String LEN = "len";
-    public static final String UDPSUM = "udpsum";
-    public static final String UDP_LENGTH = "udp_length";
-    public static final String TCP_FLAG_NS = "tcp_flag_ns";
-    public static final String TCP_FLAG_CWR = "tcp_flag_cwr";
-    public static final String TCP_FLAG_ECE = "tcp_flag_ece";
-    public static final String TCP_FLAG_URG = "tcp_flag_urg";
-    public static final String TCP_FLAG_ACK = "tcp_flag_ack";
-    public static final String TCP_FLAG_PSH = "tcp_flag_psh";
-    public static final String TCP_FLAG_RST = "tcp_flag_rst";
-    public static final String TCP_FLAG_SYN = "tcp_flag_syn";
-    public static final String TCP_FLAG_FIN = "tcp_flag_fin";
-    public static final String REASSEMBLED_TCP_FRAGMENTS = "reassembled_tcp_fragments";
-    public static final String REASSEMBLED_DATAGRAM_FRAGMENTS = "reassembled_datagram_fragments";
-    public static final String PAYLOAD_LEN = "payload_len";
-
-    public static final int ETHERNET_HEADER_SIZE = 14;
-    public static final int ETHERNET_TYPE_OFFSET = 12;
-    public static final int ETHERNET_TYPE_IP = 0x800;
-    public static final int ETHERNET_TYPE_IPV6 = 0x86dd;
-    public static final int ETHERNET_TYPE_8021Q = 0x8100;
-    public static final int SLL_HEADER_BASE_SIZE = 10; // SLL stands for Linux cooked-mode capture
-    public static final int SLL_ADDRESS_LENGTH_OFFSET = 4; // relative to SLL header
-    public static final int IPV6_HEADER_SIZE = 40;
-    public static final int IP_VHL_OFFSET = 0;	// relative to start of IP header
-    public static final int IP_TTL_OFFSET = 8;	// relative to start of IP header
-    public static final int IP_TOTAL_LEN_OFFSET = 2;	// relative to start of IP header
-    public static final int IPV6_PAYLOAD_LEN_OFFSET = 4; // relative to start of IP header
-    public static final int IPV6_HOPLIMIT_OFFSET = 7; // relative to start of IP header
-    public static final int IP_PROTOCOL_OFFSET = 9;	// relative to start of IP header
-    public static final int IPV6_NEXTHEADER_OFFSET = 6; // relative to start of IP header
-    public static final int IP_SRC_OFFSET = 12;	// relative to start of IP header
-    public static final int IPV6_SRC_OFFSET = 8; // relative to start of IP header
-    public static final int IP_DST_OFFSET = 16;	// relative to start of IP header
-    public static final int IPV6_DST_OFFSET = 24; // relative to start of IP header
-    public static final int IP_ID_OFFSET = 4;	// relative to start of IP header
-    public static final int IPV6_ID_OFFSET = 4;	// relative to start of IP header
-    public static final int IP_FLAGS_OFFSET = 6;	// relative to start of IP header
-    public static final int IPV6_FLAGS_OFFSET = 3;	// relative to start of IP header
-    public static final int IP_FRAGMENT_OFFSET = 6;	// relative to start of IP header
-    public static final int IPV6_FRAGMENT_OFFSET = 2;	// relative to start of IP header
-    public static final int UDP_HEADER_SIZE = 8;
-    public static final int PROTOCOL_HEADER_SRC_PORT_OFFSET = 0;
-    public static final int PROTOCOL_HEADER_DST_PORT_OFFSET = 2;
-    public static final int PROTOCOL_HEADER_TCP_SEQ_OFFSET = 4;
-    public static final int PROTOCOL_HEADER_TCP_ACK_OFFSET = 8;
-    public static final int TCP_HEADER_DATA_OFFSET = 12;
+public class JsonPacket extends Packet {
+//    protected static final long serialVersionUID = 8723206921174160147L;
 
     private static final int IP_V4 = 4;
     private static final int IP_V6 = 6;
@@ -140,37 +50,7 @@ public class JsonPacket extends HashMap<String, Object> {
     private static final String JSON_TCP_FLAG_FIN = "tcp_flags_tcp_flags_fin";
     private static final String JSON_TCP_PAYLOAD_LEN = "tcp_tcp_len";
 
-    public String getFlowString() {
-        return "[" +
-                this.get(Packet.PROTOCOL) +
-                "@" +
-                this.get(Packet.SRC) +
-                ":" +
-                this.get(Packet.SRC_PORT) +
-                "->" +
-                this.get(Packet.DST) +
-                ":" +
-                this.get(Packet.DST_PORT) +
-                "]";
-    }
 
-    @Override
-    public String toString() {
-        StringBuffer sb = new StringBuffer();
-        for (Map.Entry<String, Object> entry : entrySet()) {
-            sb.append(entry.getKey());
-            sb.append('=');
-            sb.append(entry.getValue());
-            sb.append(',');
-        }
-        if (sb.length() > 0)
-            return sb.substring(0, sb.length() - 1);
-        return null;
-    }
-
-    public static String convertProtocolIdentifier(int identifier) {
-        return protocols.get(identifier);
-    }
 
     /**
      * Attempts to parse the input jsonFrame into Packet.
@@ -184,7 +64,7 @@ public class JsonPacket extends HashMap<String, Object> {
         try {
             Map<String, Object> jsonMap = objectMapper.readValue(jsonFrame,
                     new TypeReference<Map<String,Object>>(){});
-            addTimeStamp(packet, (String) jsonMap.get(JSON_TIMESTAMP));
+            addLongValue(packet, TIMESTAMP, (String) jsonMap.get(JSON_TIMESTAMP));
             Map<String, Object> layers = (Map<String, Object>) jsonMap.get(JSON_LAYERS);
             if (layers == null) {
                 return packet;
@@ -203,15 +83,6 @@ public class JsonPacket extends HashMap<String, Object> {
         }
 
         return packet;
-    }
-
-    private static void addTimeStamp(JsonPacket packet, String timeStamp) {
-        try {
-            long unixTimeStamp = Long.decode(timeStamp);
-            packet.put(TIMESTAMP, unixTimeStamp * TICKS_PER_MILLISECOND + UNIX_BASE_TICKS);
-        } catch (NumberFormatException e) {
-            LOG.warn("Unknown timestamp format.");
-        }
     }
 
     private static void parseFrameLayer(JsonPacket packet, Map<String, Object> frame) {
@@ -239,7 +110,7 @@ public class JsonPacket extends HashMap<String, Object> {
 
     @SuppressWarnings("unchecked")
     private static void parseTransportLayer(JsonPacket packet, Map<String, Object> layers) {
-        String protocol = (String)packet.get(Packet.PROTOCOL);
+        String protocol = (String)packet.get(PROTOCOL);
         switch (protocol) {
             case PROTOCOL_TCP:
                 parseTcp(packet, (Map<String, Object>) layers.get(JSON_TCP));

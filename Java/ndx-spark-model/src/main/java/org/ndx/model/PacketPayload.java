@@ -1,17 +1,15 @@
 package org.ndx.model;
 
-import org.ndx.model.Packet;
-
 public class PacketPayload {
-    Packet _packet;
+    PcapPacket _packet;
     byte[] _payload;
-    public PacketPayload(Packet packet, byte[] payload)
+    public PacketPayload(PcapPacket packet, byte[] payload)
     {
         _packet = packet;
         _payload = payload;
     }
 
-    public Packet getPacket()
+    public PcapPacket getPacket()
     {
         return _packet;
     }
