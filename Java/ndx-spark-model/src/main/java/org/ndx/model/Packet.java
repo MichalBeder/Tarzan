@@ -7,12 +7,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public abstract class Packet extends HashMap<String, Object> {
-    protected static Map<Integer, String> protocols;
+
     protected static final Log LOG = LogFactory.getLog(Packet.class);
+
     public static final String PROTOCOL_ICMP = "ICMP";
     public static final String PROTOCOL_TCP = "TCP";
     public static final String PROTOCOL_UDP = "UDP";
     public static final String PROTOCOL_FRAGMENT = "Fragment";
+    protected static Map<Integer, String> protocols;
     static {
         protocols = new HashMap<Integer, String>();
         protocols.put(1, PROTOCOL_ICMP);
@@ -20,6 +22,18 @@ public abstract class Packet extends HashMap<String, Object> {
         protocols.put(17, PROTOCOL_UDP);
         protocols.put(44, PROTOCOL_FRAGMENT);
     }
+
+    public enum ApplicationLayerProtocols {
+        DNS,
+        HTTP,
+        HTTPS,
+        SMTP,
+        POP3,
+        IMAP,
+        TLS
+    }
+    public static final String APP_LAYER_PROTOCOL = "app_protocol";
+
     public static final String TIMESTAMP = "ts";
     public static final String TIMESTAMP_USEC = "ts_usec";
     public static final String TIMESTAMP_MICROS = "ts_micros";
@@ -59,6 +73,8 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String REASSEMBLED_DATAGRAM_FRAGMENTS = "reassembled_datagram_fragments";
     public static final String PAYLOAD_LEN = "payload_len";
 
+    public static final String DNS_ANSWER_CNT = "dns_answer_cnt";
+
     public static final int UDP_HEADER_SIZE = 8;
 
     public String getFlowString() {
@@ -95,5 +111,6 @@ public abstract class Packet extends HashMap<String, Object> {
 
     public static JsonPacket parsePacket(String frame) { return JsonPacket.parsePacket(frame); }
     public static PcapPacket parsePacket(PacketModel.RawFrame frame) { return PcapPacket.parsePacket(frame); }
+    public String getDnsAnswCnt() { return ""; }
 
 }

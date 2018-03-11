@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import net.sf.json.JSONObject;
 
 public class JsonPacket extends Packet {
 //    protected static final long serialVersionUID = 8723206921174160147L;
@@ -50,8 +51,6 @@ public class JsonPacket extends Packet {
     private static final String JSON_TCP_FLAG_FIN = "tcp_flags_tcp_flags_fin";
     private static final String JSON_TCP_PAYLOAD_LEN = "tcp_tcp_len";
 
-
-
     /**
      * Attempts to parse the input jsonFrame into Packet.
      * @param jsonFrame An input frame to be parsed.
@@ -62,7 +61,8 @@ public class JsonPacket extends Packet {
         JsonPacket packet = new JsonPacket();
         ObjectMapper objectMapper = new ObjectMapper();
         try {
-            Map<String, Object> jsonMap = objectMapper.readValue(jsonFrame,
+            JSONObject jsonObject = JSONObject.fromObject(jsonFrame);
+            Map<String, Object> jsonMap = objectMapper.readValue(jsonObject.toString(),
                     new TypeReference<Map<String,Object>>(){});
             addLongValue(packet, TIMESTAMP, (String) jsonMap.get(JSON_TIMESTAMP));
             Map<String, Object> layers = (Map<String, Object>) jsonMap.get(JSON_LAYERS);
@@ -76,6 +76,7 @@ public class JsonPacket extends Packet {
                 LOG.info("IP fragment detected - fragmented packets are not supported.");
             } else {
                 parseTransportLayer(packet, layers);
+                parseApplicationLayer(packet, layers);
             }
 
         } catch (IOException e) {
@@ -122,6 +123,22 @@ public class JsonPacket extends Packet {
                 LOG.info("Not supported transport layer protocol.");
                 break;
         }
+    }
+
+    private static void parseApplicationLayer(JsonPacket packet, Map<String, Object> layers) {
+        Map<String, Object> payload = detectProtocol(layers);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String,Object> detectProtocol(Map<String, Object> layers) {
+        Map<String, Object> appProtocol = null;
+        for (ApplicationLayerProtocols protocol : ApplicationLayerProtocols.values()) {
+            appProtocol = (Map<String, Object>) layers.get(protocol.name().toLowerCase());
+            if (appProtocol != null) {
+                break;
+            }
+        }
+        return appProtocol;
     }
 
     private static void parseUdp(JsonPacket packet, Map<String, Object> udp) {

@@ -2,6 +2,8 @@ package org.ndx.model;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import io.kaitai.struct.ByteBufferKaitaiStream;
 import org.ndx.model.FlowModel.FlowKey;
 import org.ndx.model.PacketModel.RawFrame;
 import java.util.function.Consumer;
@@ -178,10 +180,28 @@ public class PcapPacket extends Packet {
                 }
 
                 packet.put(LEN, packetPayload != null ? packetPayload.length : 0);
-                packet.processPacketPayload(packetPayload, processPayload);
+//                packet.processPacketPayload(packetPayload, processPayload);
+                packet.processPacketPayload(packetPayload);
             }
         }
         return packet;
+    }
+
+
+    //TODO delete this testing function
+    @Override
+    public String getDnsAnswCnt() {
+        if (this.get(DNS_ANSWER_CNT) != null) {
+            return this.get(DNS_ANSWER_CNT).toString();
+        }
+        return "";
+    }
+
+    private void processPacketPayload(byte[] payload) {
+        if (PROTOCOL_UDP.equals(get(PROTOCOL)) && (53 == (int)get(SRC_PORT) || 53 == (int)get(DST_PORT))) {
+            DnsPacket data = new DnsPacket(new ByteBufferKaitaiStream(payload));
+            this.put(DNS_ANSWER_CNT, data.ancount());
+        }
     }
 
     private static long getTimeStamp(RawFrame frame) {
