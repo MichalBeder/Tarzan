@@ -1,6 +1,6 @@
-package org.ndx.model;
+package org.ndx.model.pcap;
 import com.google.protobuf.ByteString;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 
 public class RawFrameHelper  {
     public static RawFrame New(int linkType, int frameNumber, int frameLength, long ticks, byte[] rawFrameData)

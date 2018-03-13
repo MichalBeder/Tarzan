@@ -2,9 +2,8 @@ package org.ndx.pcap;
 import java.util.*;
 import junit.framework.TestCase;
 import java.io.DataInputStream;
-import java.io.FileInputStream;
 import java.io.InputStream;
-import org.ndx.model.PacketModel;
+import org.ndx.model.pcap.PacketModel;
 public class PcapReaderTest extends TestCase {
 
     private ClassLoader classLoader = getClass().getClassLoader();

@@ -16,8 +16,8 @@ implicit def toConsumer[A](function: A => Unit): java.util.function.Consumer[A] 
 
 
 import org.ndx.model.Packet;
-import org.ndx.model.PacketPayload;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.PacketPayload;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 import org.ndx.model.Statistics;
 import org.ndx.tshark.HttpRequest;
 

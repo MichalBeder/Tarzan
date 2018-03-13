@@ -5,7 +5,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.ObjectWritable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.util.Iterator;

@@ -1,4 +1,4 @@
-package org.ndx.model;
+package org.ndx.model.pcap;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;

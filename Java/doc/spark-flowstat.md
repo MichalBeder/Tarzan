@@ -6,7 +6,7 @@ This document shows how NDX-SPARK can be used to get flow statistics.
 
 ```scala
 import org.ndx.model.Packet;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 import org.ndx.model.Statistics;
 
 val frames = sc.hadoopFile("hdfs://neshpc1.fit.vutbr.cz/user/rysavy/cap/*.cap", 

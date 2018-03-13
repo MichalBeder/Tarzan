@@ -2,6 +2,7 @@ package org.ndx.model;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.ndx.model.pcap.PacketModel;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,6 +25,7 @@ public abstract class Packet extends HashMap<String, Object> {
     }
 
     public enum ApplicationLayerProtocols {
+        NOT_SUPPORTED,
         DNS,
         HTTP,
         HTTPS,
@@ -39,6 +41,7 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String TIMESTAMP_MICROS = "ts_micros";
     public static final String NUMBER = "number";
 
+    /*** Network layer ***/
     public static final String TTL = "ttl";
     public static final String IP_VERSION = "ip_version";
     public static final String IP_HEADER_LENGTH = "ip_header_length";
@@ -52,6 +55,8 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String SRC = "src";
     public static final String DST = "dst";
     public static final String ID = "id";
+
+    /*** Transport layer ***/
     public static final String SRC_PORT = "src_port";
     public static final String DST_PORT = "dst_port";
     public static final String TCP_HEADER_LENGTH = "tcp_header_length";
@@ -72,10 +77,18 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String REASSEMBLED_TCP_FRAGMENTS = "reassembled_tcp_fragments";
     public static final String REASSEMBLED_DATAGRAM_FRAGMENTS = "reassembled_datagram_fragments";
     public static final String PAYLOAD_LEN = "payload_len";
-
-    public static final String DNS_ANSWER_CNT = "dns_answer_cnt";
-
     public static final int UDP_HEADER_SIZE = 8;
+
+    /*** Application layer ***/
+    /* DNS */
+    public static final String DNS_ANSWER_CNT = "dns_answer_cnt";
+    public static final String DNS_QUERY_CNT = "dns_query_cnt";
+    public static final String DNS_QUERY_OR_RESPONSE = "dns_query_response";
+    public static final String DNS_ID = "dns_id";
+    /* format: "name: type, class" */
+    public static final String DNS_QUERIES = "dns_query";
+    /* format: "name: type, class, rdata" */
+    public static final String DNS_ANSWERS = "dns_answer";
 
     public String getFlowString() {
         return "[" +
@@ -105,12 +118,12 @@ public abstract class Packet extends HashMap<String, Object> {
         return null;
     }
 
-    static String convertProtocolIdentifier(int identifier) {
+    public static String convertProtocolIdentifier(int identifier) {
         return protocols.get(identifier);
     }
 
-    public static JsonPacket parsePacket(String frame) { return JsonPacket.parsePacket(frame); }
-    public static PcapPacket parsePacket(PacketModel.RawFrame frame) { return PcapPacket.parsePacket(frame); }
+    public void parsePacket(String frame) {}
+    public void parsePacket(PacketModel.RawFrame frame) {}
     public String getDnsAnswCnt() { return ""; }
 
 }

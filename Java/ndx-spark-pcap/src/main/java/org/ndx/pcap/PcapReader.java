@@ -11,8 +11,8 @@ import org.apache.commons.logging.LogFactory;
 import com.google.common.base.Objects;
 import com.google.common.collect.ComparisonChain;
 
-import org.ndx.model.RawFrameHelper;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.RawFrameHelper;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 
 public class PcapReader implements Iterable<RawFrame> {
     public static final Log LOG = LogFactory.getLog(PcapReader.class);

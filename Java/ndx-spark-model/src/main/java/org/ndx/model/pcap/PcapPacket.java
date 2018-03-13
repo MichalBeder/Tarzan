@@ -1,11 +1,12 @@
-package org.ndx.model;
+package org.ndx.model.pcap;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import io.kaitai.struct.ByteBufferKaitaiStream;
-import org.ndx.model.FlowModel.FlowKey;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.Packet;
+import org.ndx.model.pcap.FlowModel.FlowKey;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 import java.util.function.Consumer;
 import com.google.protobuf.ByteString;
 
@@ -114,7 +115,6 @@ public class PcapPacket extends Packet {
 
     /**
      * Extends the collection of attributes of the current Packet with the provided colleciton.
-     *
      * @param prefix The prefix to be used when adding attributes. If null then no prefix will be used.
      * @param source The source collection of the attributes. It can be null.
      */
@@ -128,63 +128,60 @@ public class PcapPacket extends Packet {
     /**
      * Attempts to parse the input RawFrame into Packet.
      * @param frame An input frame to be parsed.
-     * @return a Packet object for the given input RawFrame.
      */
-    public static PcapPacket parsePacket(RawFrame frame)
-    {
-        return parsePacket(frame, null);
+    @Override
+    public void parsePacket(RawFrame frame) {
+        parsePacket(frame, null);
     }
 
-    public static PcapPacket parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload) {
-        return parsePacket(frame.getLinkTypeValue(), getTimeStamp(frame), frame.getFrameNumber(),
+    public void parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload) {
+        parsePacket(frame.getLinkTypeValue(), getTimeStamp(frame), frame.getFrameNumber(),
                 frame.getData().toByteArray(), 65535, processPayload);
     }
 
-    public static PcapPacket parsePacket(int linkType, long timestamp, int number, byte[] packetData,
+    public void parsePacket(int linkType, long timestamp, int number, byte[] packetData,
                                          int snapLen, Consumer<PacketPayload> processPayload) {
-        PcapPacket packet = new PcapPacket();
-        packet.put(TIMESTAMP, timestamp);
-        packet.put(NUMBER, number);
+        put(TIMESTAMP, timestamp);
+        put(NUMBER, number);
 
         int ipStart = findIPStart(linkType, packetData);
         if (ipStart == -1)
-            return packet;
+            return;
 
         int ipProtocolHeaderVersion = getInternetProtocolHeaderVersion(packetData, ipStart);
-        packet.put(IP_VERSION, ipProtocolHeaderVersion);
+        put(IP_VERSION, ipProtocolHeaderVersion);
 
         if (ipProtocolHeaderVersion == 4 || ipProtocolHeaderVersion == 6) {
             int ipHeaderLen = getInternetProtocolHeaderLength(packetData, ipProtocolHeaderVersion, ipStart);
             int totalLength = 0;
             if (ipProtocolHeaderVersion == 4) {
-                buildInternetProtocolV4Packet(packet, packetData, ipStart);
+                buildInternetProtocolV4Packet(packetData, ipStart);
                 totalLength = BitConverter.convertShort(packetData, ipStart + IP_TOTAL_LEN_OFFSET);
             } else if (ipProtocolHeaderVersion == 6) {
-                buildInternetProtocolV6Packet(packet, packetData, ipStart);
-                ipHeaderLen += buildInternetProtocolV6ExtensionHeaderFragment(packet, packetData, ipStart);
+                buildInternetProtocolV6Packet(packetData, ipStart);
+                ipHeaderLen += buildInternetProtocolV6ExtensionHeaderFragment(packetData, ipStart);
                 int payloadLength = BitConverter.convertShort(packetData, ipStart + IPV6_PAYLOAD_LEN_OFFSET);
                 totalLength = payloadLength + IPV6_HEADER_SIZE;
             }
-            packet.put(IP_HEADER_LENGTH, ipHeaderLen);
+            put(IP_HEADER_LENGTH, ipHeaderLen);
 
-            if ((Boolean)packet.get(FRAGMENT)) {
+            if ((Boolean) get(FRAGMENT)) {
                 LOG.info("IP fragment detected - fragmented packets are not supported.");
             } else {
-                String protocol = (String)packet.get(PROTOCOL);
+                String protocol = (String) get(PROTOCOL);
                 int payloadDataStart = ipStart + ipHeaderLen;
                 int payloadLength = totalLength - ipHeaderLen;
-                byte[] packetPayload = packet.readPayload(packetData, payloadDataStart, payloadLength, snapLen);
+                byte[] packetPayload = readPayload(packetData, payloadDataStart, payloadLength, snapLen);
                 if (PROTOCOL_UDP.equals(protocol) || PROTOCOL_TCP.equals(protocol)) {
-                    packetPayload = packet.buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart,
+                    packetPayload = buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart,
                             ipHeaderLen, totalLength, snapLen);
                 }
 
-                packet.put(LEN, packetPayload != null ? packetPayload.length : 0);
+                put(LEN, packetPayload != null ? packetPayload.length : 0);
 //                packet.processPacketPayload(packetPayload, processPayload);
-                packet.processPacketPayload(packetPayload);
+                processPacketPayload(packetPayload);
             }
         }
-        return packet;
     }
 
 
@@ -204,7 +201,7 @@ public class PcapPacket extends Packet {
         }
     }
 
-    private static long getTimeStamp(RawFrame frame) {
+    private long getTimeStamp(RawFrame frame) {
         long timeStamp = frame.getTimeStamp();
         return (timeStamp - UNIX_BASE_TICKS) / TICKS_PER_MILLISECOND;
     }
@@ -215,13 +212,12 @@ public class PcapPacket extends Packet {
      * @param processPayload	function that is called for processing the content. It can be null.
      */
     private void processPacketPayload(byte[] payload, Consumer<PacketPayload> processPayload) {
-        if (processPayload != null)
-        {
+        if (processPayload != null) {
             processPayload.accept(new PacketPayload(this, payload));
         }
     }
 
-    private static int findIPStart(int linkType, byte[] packet) {
+    private int findIPStart(int linkType, byte[] packet) {
         int start;
         switch (linkType) {
             case Constants.DataLinkType.Null_VALUE:
@@ -249,7 +245,7 @@ public class PcapPacket extends Packet {
         return -1;
     }
 
-    private static int getInternetProtocolHeaderLength(byte[] packet, int ipProtocolHeaderVersion, int ipStart) {
+    private int getInternetProtocolHeaderLength(byte[] packet, int ipProtocolHeaderVersion, int ipStart) {
         if (ipProtocolHeaderVersion == 4)
             return (packet[ipStart + IP_VHL_OFFSET] & 0xF) * 4;
         else if (ipProtocolHeaderVersion == 6)
@@ -257,84 +253,83 @@ public class PcapPacket extends Packet {
         return -1;
     }
 
-    private static int getInternetProtocolHeaderVersion(byte[] packet, int ipStart) {
+    private int getInternetProtocolHeaderVersion(byte[] packet, int ipStart) {
         return (packet[ipStart + IP_VHL_OFFSET] >> 4) & 0xF;
     }
 
-    private static int getTcpHeaderLength(byte[] packet, int tcpStart) {
+    private int getTcpHeaderLength(byte[] packet, int tcpStart) {
         int dataOffset = tcpStart + TCP_HEADER_DATA_OFFSET;
         return ((packet[dataOffset] >> 4) & 0xF) * 4;
     }
 
-    private static void buildInternetProtocolV4Packet(PcapPacket packet, byte[] packetData, int ipStart) {
+    private void buildInternetProtocolV4Packet(byte[] packetData, int ipStart) {
         long id = (long) BitConverter.convertShort(packetData, ipStart + IP_ID_OFFSET);
-        packet.put(ID, id);
+        put(ID, id);
 
         int flags = packetData[ipStart + IP_FLAGS_OFFSET] & 0xE0;
-        packet.put(IP_FLAGS_DF, (flags & 0x40) != 0);
-        packet.put(IP_FLAGS_MF, (flags & 0x20) != 0);
+        put(IP_FLAGS_DF, (flags & 0x40) != 0);
+        put(IP_FLAGS_MF, (flags & 0x20) != 0);
 
         long fragmentOffset = (BitConverter.convertShort(packetData, ipStart + IP_FRAGMENT_OFFSET) & 0x1FFF) * 8;
-        packet.put(FRAGMENT_OFFSET, fragmentOffset);
+        put(FRAGMENT_OFFSET, fragmentOffset);
 
         if ((flags & 0x20) != 0 || fragmentOffset != 0) {
-            packet.put(FRAGMENT, true);
-            packet.put(LAST_FRAGMENT, ((flags & 0x20) == 0 && fragmentOffset != 0));
+            put(FRAGMENT, true);
+            put(LAST_FRAGMENT, ((flags & 0x20) == 0 && fragmentOffset != 0));
         } else {
-            packet.put(FRAGMENT, false);
+            put(FRAGMENT, false);
         }
 
         int ttl = packetData[ipStart + IP_TTL_OFFSET] & 0xFF;
-        packet.put(TTL, ttl);
+        put(TTL, ttl);
 
         int protocol = packetData[ipStart + IP_PROTOCOL_OFFSET];
-        packet.put(PROTOCOL, convertProtocolIdentifier(protocol));
+        put(PROTOCOL, convertProtocolIdentifier(protocol));
 
         String src = BitConverter.convertAddress(packetData, ipStart + IP_SRC_OFFSET, 4);
-        packet.put(SRC, src);
+        put(SRC, src);
 
         String dst = BitConverter.convertAddress(packetData, ipStart + IP_DST_OFFSET, 4);
-        packet.put(DST, dst);
+        put(DST, dst);
     }
 
-    private static void buildInternetProtocolV6Packet(PcapPacket packet, byte[] packetData, int ipStart) {
+    private void buildInternetProtocolV6Packet(byte[] packetData, int ipStart) {
         int ttl = packetData[ipStart + IPV6_HOPLIMIT_OFFSET] & 0xFF;
-        packet.put(TTL, ttl);
+        put(TTL, ttl);
 
         int protocol = packetData[ipStart + IPV6_NEXTHEADER_OFFSET];
-        packet.put(PROTOCOL, convertProtocolIdentifier(protocol));
+        put(PROTOCOL, convertProtocolIdentifier(protocol));
 
         String src = BitConverter.convertAddress(packetData, ipStart + IPV6_SRC_OFFSET, 16);
-        packet.put(SRC, src);
+        put(SRC, src);
 
         String dst = BitConverter.convertAddress(packetData, ipStart + IPV6_DST_OFFSET, 16);
-        packet.put(DST, dst);
+        put(DST, dst);
     }
 
-    private static int buildInternetProtocolV6ExtensionHeaderFragment(PcapPacket packet, byte[] packetData,
-                                                                      int ipStart) {
-        if (PROTOCOL_FRAGMENT.equals(packet.get(PROTOCOL))) {
+    private int buildInternetProtocolV6ExtensionHeaderFragment(byte[] packetData, int ipStart) {
+        if (PROTOCOL_FRAGMENT.equals(get(PROTOCOL))) {
             long id = BitConverter.convertUnsignedInt(packetData, ipStart + IPV6_HEADER_SIZE + IPV6_ID_OFFSET);
-            packet.put(ID, id);
+            put(ID, id);
 
             int flags = packetData[ipStart + IPV6_HEADER_SIZE + IPV6_FLAGS_OFFSET] & 0x7;
-            packet.put(IPV6_FLAGS_M, (flags & 0x1) != 0);
+            put(IPV6_FLAGS_M, (flags & 0x1) != 0);
 
             long fragmentOffset = BitConverter.convertShort(packetData, ipStart + IPV6_HEADER_SIZE +
                     IPV6_FRAGMENT_OFFSET) & 0xFFF8;
-            packet.put(FRAGMENT_OFFSET, fragmentOffset);
+            put(FRAGMENT_OFFSET, fragmentOffset);
 
-            packet.put(FRAGMENT, true);
-            packet.put(LAST_FRAGMENT, ((flags & 0x1) == 0 && fragmentOffset != 0));
+            put(FRAGMENT, true);
+            put(LAST_FRAGMENT, ((flags & 0x1) == 0 && fragmentOffset != 0));
 
             int protocol = packetData[ipStart + IPV6_HEADER_SIZE];
-            packet.put(PROTOCOL, convertProtocolIdentifier(protocol)); // Change protocol to value from fragment header
+            put(PROTOCOL, convertProtocolIdentifier(protocol)); // Change protocol to value from fragment header
 
             return 8; // Return fragment header extension length
         }
 
         // Not a fragment
-        packet.put(FRAGMENT, false);
+        put(FRAGMENT, false);
         return 0;
     }
 

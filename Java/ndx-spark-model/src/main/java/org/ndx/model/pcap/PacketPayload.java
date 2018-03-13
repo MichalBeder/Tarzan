@@ -1,4 +1,4 @@
-package org.ndx.model;
+package org.ndx.model.pcap;
 
 public class PacketPayload {
     PcapPacket _packet;

@@ -5,7 +5,7 @@ First we precompute information about the pcap file:
 
 ```scala
 import org.ndx.model.Packet;
-import org.ndx.model.PacketModel.RawFrame;
+import org.ndx.model.pcap.PacketModel.RawFrame;
 import org.ndx.model.Statistics;
 
 val frames = sc.hadoopFile("hdfs://neshpc1.fit.vutbr.cz/user/rysavy/cap/*.cap", 

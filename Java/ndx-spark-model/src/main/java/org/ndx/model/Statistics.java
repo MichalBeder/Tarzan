@@ -1,7 +1,9 @@
 package org.ndx.model;
 
-import org.ndx.model.ConversationModel.FlowAttributes;
-import org.ndx.model.FlowModel.FlowKey;
+import org.ndx.model.pcap.ConversationModel.FlowAttributes;
+import org.ndx.model.pcap.FlowModel.FlowKey;
+import org.ndx.model.pcap.PcapPacket;
+
 import java.util.Date;
 
 public class Statistics {
