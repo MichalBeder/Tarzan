@@ -3,8 +3,11 @@ package org.ndx.model.pcap;
 import java.util.HashMap;
 import java.util.Map;
 
-import io.kaitai.struct.ByteBufferKaitaiStream;
 import org.ndx.model.Packet;
+import org.ndx.model.parsers.applayer.AppLayerParser;
+import org.ndx.model.parsers.applayer.DnsJsonParser;
+import org.ndx.model.parsers.applayer.DnsPcapParser;
+import org.ndx.model.parsers.applayer.HttpPcapParser;
 import org.ndx.model.pcap.FlowModel.FlowKey;
 import org.ndx.model.pcap.PacketModel.RawFrame;
 import java.util.function.Consumer;
@@ -178,27 +181,46 @@ public class PcapPacket extends Packet {
                 }
 
                 put(LEN, packetPayload != null ? packetPayload.length : 0);
-//                packet.processPacketPayload(packetPayload, processPayload);
-                processPacketPayload(packetPayload);
+
+                if (processPayload == null) {
+                    processPacketPayload(packetPayload);
+                } else {
+                    processPacketPayload(packetPayload, processPayload);
+                }
             }
         }
     }
 
-
-    //TODO delete this testing function
-    @Override
-    public String getDnsAnswCnt() {
-        if (this.get(DNS_ANSWER_CNT) != null) {
-            return this.get(DNS_ANSWER_CNT).toString();
+    private void processPacketPayload(byte[] payload) {
+        AppLayerParser parser = null;
+        AppLayerProtocols protocol;
+        if (isDnsProtocol()) {
+            try {
+                DnsPcapParser dnsParser = new DnsPcapParser();
+                protocol = AppLayerProtocols.DNS;
+                dnsParser.parse(payload);
+            } catch (IllegalArgumentException e) {
+                protocol = AppLayerProtocols.NOT_SUPPORTED;
+            }
+        } else {
+            HttpPcapParser httpParser = new HttpPcapParser();
+            try {
+                httpParser.parse(payload);
+                protocol = AppLayerProtocols.HTTP;
+                parser = httpParser;
+            } catch (IllegalArgumentException e) {
+                protocol = AppLayerProtocols.NOT_SUPPORTED;
+            }
         }
-        return "";
+
+        put(Packet.APP_LAYER_PROTOCOL, protocol);
+        if (parser != null) {
+            putAll(parser);
+        }
     }
 
-    private void processPacketPayload(byte[] payload) {
-        if (PROTOCOL_UDP.equals(get(PROTOCOL)) && (53 == (int)get(SRC_PORT) || 53 == (int)get(DST_PORT))) {
-            DnsPacket data = new DnsPacket(new ByteBufferKaitaiStream(payload));
-            this.put(DNS_ANSWER_CNT, data.ancount());
-        }
+    private boolean isDnsProtocol() {
+        return 53 == (int)get(SRC_PORT) || 53 == (int)get(DST_PORT);
     }
 
     private long getTimeStamp(RawFrame frame) {

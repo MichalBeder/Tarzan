@@ -24,7 +24,7 @@ public abstract class Packet extends HashMap<String, Object> {
         protocols.put(44, PROTOCOL_FRAGMENT);
     }
 
-    public enum ApplicationLayerProtocols {
+    public enum AppLayerProtocols {
         NOT_SUPPORTED,
         DNS,
         HTTP,
@@ -83,12 +83,19 @@ public abstract class Packet extends HashMap<String, Object> {
     /* DNS */
     public static final String DNS_ANSWER_CNT = "dns_answer_cnt";
     public static final String DNS_QUERY_CNT = "dns_query_cnt";
-    public static final String DNS_QUERY_OR_RESPONSE = "dns_query_response";
+    public static final String DNS_IS_RESPONSE = "dns_query_response";
     public static final String DNS_ID = "dns_id";
     /* format: "name: type, class" */
-    public static final String DNS_QUERIES = "dns_query";
+    public static final String DNS_QUERIES = "dns_queries";
     /* format: "name: type, class, rdata" */
-    public static final String DNS_ANSWERS = "dns_answer";
+    public static final String DNS_ANSWERS = "dns_answers";
+
+    /* HTTP */
+    public static final String HTTP_VERSION = "http_version";
+    public static final String HTTP_URL = "http_url";
+    public static final String HTTP_PAYLOAD = "http_payload";
+    public static final String HTTP_IS_RESPONSE = "http_is_response";
+    public static final String HTTP_METHOD = "http_method";
 
     public String getFlowString() {
         return "[" +
@@ -124,6 +131,4 @@ public abstract class Packet extends HashMap<String, Object> {
 
     public void parsePacket(String frame) {}
     public void parsePacket(PacketModel.RawFrame frame) {}
-    public String getDnsAnswCnt() { return ""; }
-
 }

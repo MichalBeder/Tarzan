@@ -9,10 +9,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import net.sf.json.JSONObject;
 import org.ndx.model.Packet;
 import org.ndx.model.parsers.applayer.AppLayerParser;
-import org.ndx.model.parsers.applayer.DnsParser;
+import org.ndx.model.parsers.applayer.DnsJsonParser;
+import org.ndx.model.parsers.applayer.HttpJsonParser;
 
 public class JsonPacket extends Packet {
-//    protected static final long serialVersionUID = 8723206921174160147L;
 
     private static final int IP_V4 = 4;
     private static final int IP_V6 = 6;
@@ -128,11 +128,23 @@ public class JsonPacket extends Packet {
 
     private void parseApplicationLayer(Map<String, Object> layers) {
         Map<String, Object> payload = detectProtocol(layers);
-        ApplicationLayerProtocols appProtocol = (ApplicationLayerProtocols) get(APP_LAYER_PROTOCOL);
+        AppLayerProtocols appProtocol = (AppLayerProtocols) get(APP_LAYER_PROTOCOL);
         AppLayerParser parser = null;
         switch (appProtocol) {
-            case DNS: parser = new DnsParser(); break;
-            case HTTP: break;
+            case DNS:
+                DnsJsonParser dnsParser = new DnsJsonParser();
+                dnsParser.parse(payload);
+                parser = dnsParser;
+                break;
+            case HTTP:
+                HttpJsonParser httpParser = new HttpJsonParser();
+                try {
+                    httpParser.parse(payload);
+                    parser = httpParser;
+                } catch (IllegalAccessException e) {
+                    put(APP_LAYER_PROTOCOL, AppLayerProtocols.NOT_SUPPORTED);
+                }
+                break;
             case HTTPS: break;
             case SMTP: break;
             case POP3: break;
@@ -143,7 +155,6 @@ public class JsonPacket extends Packet {
                 break;
         }
         if (parser != null) {
-            parser.parse(payload);
             this.putAll(parser);
         }
     }
@@ -151,8 +162,8 @@ public class JsonPacket extends Packet {
     @SuppressWarnings("unchecked")
     private Map<String,Object> detectProtocol(Map<String, Object> layers) {
         Map<String, Object> appPayload = null;
-        ApplicationLayerProtocols appProtocol = ApplicationLayerProtocols.NOT_SUPPORTED;
-        for (ApplicationLayerProtocols protocol : ApplicationLayerProtocols.values()) {
+        AppLayerProtocols appProtocol = AppLayerProtocols.NOT_SUPPORTED;
+        for (AppLayerProtocols protocol : AppLayerProtocols.values()) {
             appPayload = (Map<String, Object>) layers.get(protocol.name().toLowerCase());
             if (appPayload != null) {
                 appProtocol = protocol;

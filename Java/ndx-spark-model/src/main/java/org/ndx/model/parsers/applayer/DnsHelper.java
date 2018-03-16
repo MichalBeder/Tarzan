@@ -116,4 +116,21 @@ public final class DnsHelper {
         return type;
     }
 
+    public static String formatOutput(String name,  String type, String cls) {
+        return formatOutput(name, type, cls, "");
+    }
+
+    public static String formatOutput(String name, String type, String cls, String rdata) {
+        String output = "";
+        try {
+            output = name + "," + DnsHelper.idToType(type) + "," + DnsHelper.idToClass(cls);
+            if (rdata != null && !rdata.isEmpty()) {
+                output += "," + rdata;
+            }
+        } catch (NumberFormatException e) {
+            LOG.warn("Malformed DNS packet: " + e.getMessage());
+        }
+        return output;
+    }
+
 }
