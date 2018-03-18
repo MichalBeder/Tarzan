@@ -1,4 +1,22 @@
+# maven build files
+Java/ndx-spark-model/target/*
+Java/ndx-spark-pcap/target/*
+Java/ndx-spark-pshark/target/*
+Java/ndx-spark-tshark/target/*
+Java/ndx-spark-shell/target/*
+Java/ndx-spark-shell/dependency-reduced-pom.xml
+
+# test data
+Java/ndx-spark-pcap/src/test/resources/*
+
+# spark shell run files
+Java/metastore_db/*
+Java/derby.log
+
 # intellij idea files
 .idea/*
 *.class
 *.iml
+
+# scripts
+Java/run-spark-remote.sh
