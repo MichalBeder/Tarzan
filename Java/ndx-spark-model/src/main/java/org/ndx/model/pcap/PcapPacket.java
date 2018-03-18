@@ -3,6 +3,7 @@ package org.ndx.model.pcap;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.codec.binary.Hex;
 import org.ndx.model.Packet;
 import org.ndx.model.parsers.applayer.AppLayerParser;
 import org.ndx.model.parsers.applayer.DnsJsonParser;
@@ -49,84 +50,6 @@ public class PcapPacket extends Packet {
     private static final int PROTOCOL_HEADER_TCP_SEQ_OFFSET = 4;
     private static final int PROTOCOL_HEADER_TCP_ACK_OFFSET = 8;
     private static final int TCP_HEADER_DATA_OFFSET = 12;
-
-    public static FlowModel.FlowKey flowKeyParse(String flowkey) {
-        String[] parts = flowkey.split("\\[|@|:|->|\\]");
-        FlowKey.Builder fb = FlowKey.newBuilder();
-        fb.setProtocol(ByteString.copyFromUtf8(parts[1]));
-        fb.setSourceAddress(ByteString.copyFromUtf8(parts[2]));
-        fb.setSourceSelector(ByteString.copyFromUtf8(parts[3]));
-        fb.setDestinationAddress(ByteString.copyFromUtf8(parts[4]));
-        fb.setDestinationSelector(ByteString.copyFromUtf8(parts[5]));
-        return fb.build();
-    }
-
-    /**
-     * Returns FlowKey for the current Packet.
-     * @return FlowKey for the current Packet.
-     */
-    public FlowModel.FlowKey getFlowKey() {
-        FlowModel.FlowKey.Builder fb = FlowModel.FlowKey.newBuilder();
-        fb.setProtocol(ByteString.copyFromUtf8(get(PROTOCOL).toString()));
-        fb.setSourceAddress(ByteString.copyFromUtf8(get(SRC).toString() ));
-        fb.setSourceSelector(ByteString.copyFromUtf8(get(SRC_PORT).toString() ));
-        fb.setDestinationAddress(ByteString.copyFromUtf8(get(DST).toString() ));
-        fb.setDestinationSelector(ByteString.copyFromUtf8(get(DST_PORT).toString() ));
-        return fb.build();
-    }
-
-    public String getSessionString() {
-        String loAddress;
-        String hiAddress;
-        Integer loPort;
-        Integer hiPort;
-        if (((String)get(SRC)).compareTo((String)get(DST)) == 0) {
-            loAddress = (String)get(SRC);
-            hiAddress = (String)get(DST);
-            if ((Integer)get(SRC_PORT) < (Integer)get(DST_PORT)) {
-                loPort = (Integer)get(SRC_PORT);
-                hiPort = (Integer)get(DST_PORT);
-            } else {
-                loPort = (Integer)get(DST_PORT);
-                hiPort = (Integer)get(SRC_PORT);
-            }
-        }
-        else if (((String)get(SRC)).compareTo((String)get(DST)) < 0) {
-            loAddress = (String)get(SRC);
-            loPort = (Integer)get(SRC_PORT);
-            hiAddress = (String)get(DST);
-            hiPort = (Integer)get(DST_PORT);
-        } else {
-            loAddress = (String)get(DST);
-            loPort = (Integer)get(DST_PORT);
-            hiAddress = (String)get(SRC);
-            hiPort = (Integer)get(SRC_PORT);
-        }
-
-        return "[" +
-                this.get(PROTOCOL) +
-                "@" +
-                loAddress +
-                ":" +
-                loPort +
-                "<->" +
-                hiAddress +
-                ":" +
-                hiPort +
-                "]";
-    }
-
-    /**
-     * Extends the collection of attributes of the current Packet with the provided colleciton.
-     * @param prefix The prefix to be used when adding attributes. If null then no prefix will be used.
-     * @param source The source collection of the attributes. It can be null.
-     */
-    public void extendWith(String prefix, HashMap<String,Object> source) {
-        if (source == null) return;
-        for (Map.Entry<String,Object> entry : source.entrySet()) {
-            this.put(prefix == null ? entry.getKey() : prefix + "." + entry.getKey(), entry.getValue());
-        }
-    }
 
     /**
      * Attempts to parse the input RawFrame into Packet.
@@ -179,8 +102,11 @@ public class PcapPacket extends Packet {
                     packetPayload = buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart,
                             ipHeaderLen, totalLength, snapLen);
                 }
-
                 put(LEN, packetPayload != null ? packetPayload.length : 0);
+
+                if (PROTOCOL_TCP.equals(protocol) && packetPayload != null) {
+                    this.put(TCP_PAYLOAD, Hex.encodeHexString(packetPayload));
+                }
 
                 if (processPayload == null) {
                     processPacketPayload(packetPayload);
@@ -377,7 +303,6 @@ public class PcapPacket extends Packet {
                     this.put(UDPSUM, cksum);
             }
             // TODO UDP Checksum for IPv6 packets
-
             int udpLen = getUdpLength(packetData, ipStart, ipHeaderLen);
             this.put(UDP_LENGTH, udpLen);
             this.put(PAYLOAD_LEN, udpLen);

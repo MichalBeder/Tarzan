@@ -32,6 +32,10 @@ public class JsonHelper {
     }
 
     public static void addLongValue(HashMap<String, Object> map, String key, String value) {
+        if (value == null) {
+            LOG.warn("Missing value - " + key);
+            return;
+        }
         try {
             map.put(key, Long.decode(value));
         } catch (NumberFormatException e) {
@@ -40,6 +44,10 @@ public class JsonHelper {
     }
 
     public static void addIntValue(HashMap<String, Object> map, String key, String value) {
+        if (value == null) {
+            LOG.warn("Missing value - " + key);
+            return;
+        }
         try {
             map.put(key, Integer.decode(value));
         } catch (NumberFormatException e) {

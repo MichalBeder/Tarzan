@@ -49,7 +49,7 @@ public class Tshark {
         JavaPairRDD<LongWritable, Text> lines = sc.newAPIHadoopFile(path,
                 TextInputFormat.class, LongWritable.class, Text.class, new Configuration());
         //TODO filter x._2.toString().startsWith("{\"timestamp")
-        JavaRDD<String> jsons = lines.filter(x -> !x._2.toString().startsWith("{\"index")).map(x -> x._2.toString());
+        JavaRDD<String> jsons = lines.filter(x -> x._2.toString().startsWith("{\"timestamp")).map(x -> x._2.toString());
         return jsons.map(jsonFrame -> {
             Packet packet = new JsonPacket();
             packet.parsePacket(jsonFrame);
@@ -67,10 +67,21 @@ public class Tshark {
         });
     }
 
-//        JavaPairRDD<String, PcapPacket> flows = packets.mapToPair(x -> new Tuple2<>(x.getFlowString(), x));
-//        JavaPairRDD<String, ConversationModel.FlowAttributes> stats =
-//                flows.mapToPair(x -> new Tuple2<>(x._1, Statistics.fromPacket(x._2)))
-//                        .reduceByKey(Statistics::merge);
+    public static JavaRDD<Packet> getRawPackets(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets;
+        try {
+            packets = readInputFiles(sc, path);
+        } catch (IOException e) {
+            LOG.error("Not supported input file format.");
+            return null;
+        }
+        return packets;
+    }
+
+    public static JavaPairRDD<String, Iterable<Packet>> getFlows(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        return packets != null ? packets.mapToPair(x -> new Tuple2<>(x.getFlowString(), x)).groupByKey() : null;
+    }
 
     public static JavaPairRDD<String, ConversationModel.FlowAttributes> testFlows(JavaSparkContext sc, String path) {
         JavaRDD<Packet> packets;
@@ -108,6 +119,59 @@ public class Tshark {
     }
 
     @SuppressWarnings("unchecked")
+    public static void testHttpData(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        if (packets == null) return;
+        packets.collect().forEach(x -> {
+            if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.HTTP)
+                return;
+            boolean isResponse = (boolean) x.get(Packet.HTTP_IS_RESPONSE);
+            if (isResponse) {
+                System.out.println("Req/Res: Response");
+            } else {
+                System.out.println("Req/Res: Request");
+                System.out.println("URL: " + x.get(Packet.HTTP_URL));
+                System.out.println("Method: " + x.get(Packet.HTTP_METHOD));
+            }
+            System.out.println("Version: " + x.get(Packet.HTTP_VERSION));
+            System.out.println();
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void testTcpPayload(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        if (packets == null) return;
+        packets.collect().forEach(x -> {
+            if (!x.get(Packet.PROTOCOL).equals(Packet.PROTOCOL_TCP))
+                return;
+            String payload = (String) x.get(Packet.TCP_PAYLOAD);
+            if (payload != null) {
+                System.out.println(payload);
+            }
+            System.out.println();
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    public static void testIpv6Packets(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        if (packets == null) return;
+        packets.collect().forEach(x -> {
+            if ((Integer) x.get(Packet.IP_VERSION) != 6)
+                return;
+            String protocol = (String) x.get(Packet.PROTOCOL);
+            System.out.println("Protocol: " + protocol);
+            if ((boolean) x.get(Packet.FRAGMENT)) {
+                System.out.println("Fragmented.");
+            } else {
+                System.out.println("Not fragmented.");
+            }
+            System.out.println();
+        });
+    }
+
+    @SuppressWarnings("unchecked")
     public static void testDnsData(JavaSparkContext sc, String path) {
         JavaRDD<Packet> packets;
         try {
@@ -116,13 +180,12 @@ public class Tshark {
             LOG.error("Not supported input file format.");
             return;
         }
-//        JavaRDD<String> dnsAnswCnts = packets.map(Packet::getDnsAnswCnt);
         packets.collect().forEach(x -> {
-            if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.ApplicationLayerProtocols.DNS) {
+            if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.DNS) {
                 return;
             }
             String qOrR = "Query";
-            if ((int) x.get(Packet.DNS_QUERY_OR_RESPONSE) == 1) {
+            if ((boolean) x.get(Packet.DNS_IS_RESPONSE)) {
                 qOrR = "Response";
             }
             System.out.println("Q/R: " + qOrR);
@@ -141,3 +204,5 @@ public class Tshark {
         });
     }
 }
+
+//TODO 17.3. 2018 IPv6 pre JsonPacket, otestovat tcp payload, vyhladavanie v tcp payloade (v hex stringu), detekcia email protokolov, skusit parser pre pcap
