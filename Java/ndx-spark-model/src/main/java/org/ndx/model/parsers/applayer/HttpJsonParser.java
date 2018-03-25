@@ -13,20 +13,20 @@ public class HttpJsonParser extends AppLayerParser {
     private static final String HTTP_JSON_METHOD = "text_http_request_method";
     private static final String HTTP_JSON_HOST = "http_http_host";
 
-    public void parse(Map<String, Object> payload) throws IllegalAccessException {
+    public void parse(Map<String, Object> payload) {
         Object request = payload.get(HTTP_JSON_REQUEST);
         Object response = payload.get(HTTP_JSON_RESPONSE);
         if (request == null && response == null) {
-            throw new IllegalAccessException("Http packet is neither a request nor a response");
+            throw new IllegalArgumentException("Http packet is neither a request nor a response");
         }
         if (request != null) {
             put(Packet.HTTP_IS_RESPONSE, false);
-            JsonHelper.addStringValue(this, Packet.HTTP_URL, (String) payload.get(HTTP_JSON_HOST));
-            JsonHelper.addStringValue(this, Packet.HTTP_METHOD, (String) payload.get(HTTP_JSON_METHOD));
+            put(Packet.HTTP_URL, JsonHelper.getStringValue(Packet.HTTP_URL, payload.get(HTTP_JSON_HOST)));
+            put(Packet.HTTP_METHOD, JsonHelper.getStringValue(Packet.HTTP_METHOD, payload.get(HTTP_JSON_METHOD)));
 
         } else {
             put(Packet.HTTP_IS_RESPONSE, true);
         }
-        JsonHelper.addStringValue(this, Packet.HTTP_VERSION, (String) payload.get(HTTP_JSON_VERSION));
+        put(Packet.HTTP_VERSION, JsonHelper.getStringValue(Packet.HTTP_VERSION, payload.get(HTTP_JSON_VERSION)));
     }
 }

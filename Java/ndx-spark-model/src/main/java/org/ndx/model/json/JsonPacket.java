@@ -3,8 +3,8 @@ package org.ndx.model.json;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import net.sf.json.JSONObject;
@@ -13,16 +13,16 @@ import org.ndx.model.Packet;
 import org.ndx.model.parsers.applayer.AppLayerParser;
 import org.ndx.model.parsers.applayer.DnsJsonParser;
 import org.ndx.model.parsers.applayer.HttpJsonParser;
+import org.ndx.model.parsers.applayer.SslJsonParser;
 
-@SuppressWarnings("unchecked")
 public class JsonPacket extends Packet {
 
     private static final String JSON_LAYERS = "layers";
     private static final String JSON_TIMESTAMP = "timestamp";
     private static final String JSON_FRAME = "frame";
     private static final String JSON_FRAME_NUMBER = "frame_frame_number";
+    private static final String JSON_FRAME_LENGTH = "frame_frame_len";
 
-    private static final String JSON_IP_VERSION = "ip_ip_version";
     private static final String JSON_IPV4 = "ip";
     private static final String JSON_IPV4_SRC = "ip_ip_src";
     private static final String JSON_IPV4_DST = "ip_ip_dst";
@@ -39,6 +39,7 @@ public class JsonPacket extends Packet {
     private static final String JSON_IPV6_NEXT = "ipv6_ipv6_nxt";
     private static final String JSON_IPV6_NEXT_SUFFIX = "_nxt";
     private static final String JSON_IPV6_HOP_LIMIT = "ipv6_ipv6_hlim";
+    private static final String JSON_IPV6_FRAGMENT_HEADER = "ipv6_ipv6_fraghdr";
 
     private static final String JSON_UDP = "udp";
     private static final String JSON_UDP_SRC_PORT = "udp_udp_srcport";
@@ -63,8 +64,8 @@ public class JsonPacket extends Packet {
     private static final String JSON_TCP_PAYLOAD = "tcp_tcp_payload";
     private static final String JSON_TCP_PAYLOAD_LEN = "tcp_tcp_len";
 
-    private static final String IPV4 = "4";
-    private static final String IPV6 = "6";
+    private static final int IPV4 = 4;
+    private static final int IPV6 = 6;
 
     /**
      * Attempts to parse the input jsonFrame into Packet.
@@ -77,15 +78,15 @@ public class JsonPacket extends Packet {
             JSONObject jsonObject = JSONObject.fromObject(jsonFrame);
             Map<String, Object> jsonMap = objectMapper.readValue(jsonObject.toString(),
                     new TypeReference<Map<String,Object>>(){});
-            JsonHelper.addLongValue(this, TIMESTAMP, (String) jsonMap.get(JSON_TIMESTAMP));
-            Map<String, Object> layers = (Map<String, Object>) jsonMap.get(JSON_LAYERS);
+            put(TIMESTAMP, JsonHelper.getLongValue(TIMESTAMP, jsonMap.get(JSON_TIMESTAMP)));
+            Map<String, Object> layers = JsonHelper.castHashMap(jsonMap, JSON_LAYERS);
             if (layers == null) {
                 return;
             }
 
-            parseFrameLayer((Map<String, Object>) layers.get(JSON_FRAME));
+            parseFrameLayer(JsonHelper.castHashMap(layers, JSON_FRAME));
             parseIpLayer(layers);
-            if ((Boolean) get(FRAGMENT)) {
+            if ((boolean) get(FRAGMENT)) {
                 LOG.info("IP fragment detected - fragmented packets are not supported.");
             } else {
                 parseTransportLayer(layers);
@@ -104,48 +105,52 @@ public class JsonPacket extends Packet {
         if (frame == null) {
             throw new IllegalArgumentException("Missing frame layer.");
         }
-        JsonHelper.addIntValue(this, NUMBER, (String) frame.get(JSON_FRAME_NUMBER));
+        put(NUMBER, JsonHelper.getIntValue(NUMBER, frame.get(JSON_FRAME_NUMBER)));
+        put(FRAME_LENGTH, JsonHelper.getIntValue(FRAME_LENGTH, frame.get(JSON_FRAME_LENGTH)));
     }
 
     private void parseIpLayer(Map<String, Object> layers) {
         if (layers == null) {
             throw new IllegalArgumentException("Malformed JSON packet.");
         }
-        Object ip = layers.get(JSON_IPV4);
-        boolean implemented = false;
-        if (ip != null) {
-            parseIpV4((Map<String, Object>) ip);
-            implemented = true;
-        }
-        ip = layers.get(JSON_IPV6);
-        if (ip != null) {
-            parseIpV6((Map<String, Object>)ip);
-            implemented = true;
-        }
-        if (!implemented) {
+        if (layers.containsKey(JSON_IPV4)) {
+            parseIpV4(JsonHelper.castHashMap(layers, JSON_IPV4));
+        } else if (layers.containsKey(JSON_IPV6)) {
+            parseIpV6(JsonHelper.castHashMap(layers, JSON_IPV6));
+        } else {
             throw new NotImplementedException("Not supported network layer protocol.");
         }
     }
 
     private void parseTransportLayer(Map<String, Object> layers) {
-        String protocol = (String) get(PROTOCOL);
-        switch (protocol) {
-            case PROTOCOL_TCP:
-                parseTcp((Map<String, Object>) layers.get(JSON_TCP));
-                break;
-            case PROTOCOL_UDP:
-                parseUdp((Map<String, Object>) layers.get(JSON_UDP));
-                break;
-            default:
-                throw new NotImplementedException("Not supported transport layer protocol.");
+        if (layers.containsKey(PROTOCOL_TCP.toLowerCase())) {
+            parseTcp(JsonHelper.castHashMap(layers, JSON_TCP));
+            put(PROTOCOL, PROTOCOL_TCP);
+        } else if (layers.containsKey(PROTOCOL_UDP.toLowerCase())) {
+            parseUdp(JsonHelper.castHashMap(layers, JSON_UDP));
+            put(PROTOCOL, PROTOCOL_UDP);
+        } else {
+            if (layers.containsKey(PROTOCOL_ICMP.toLowerCase())) {
+                put(PROTOCOL, PROTOCOL_ICMP);
+            }
+            throw new NotImplementedException("Not supported transport layer protocol.");
         }
     }
 
     private void parseApplicationLayer(Map<String, Object> layers) {
-        Map<String, Object> payload = detectProtocol(layers);
-        AppLayerProtocols appProtocol = (AppLayerProtocols) get(APP_LAYER_PROTOCOL);
+        AppLayerProtocols appProtocol = detectAppProtocol(layers);
+        put(APP_LAYER_PROTOCOL, appProtocol);
+        if (appProtocol == AppLayerProtocols.UNKNOWN) return;
+        Map<String,Object> payload = JsonHelper.castHashMap(layers, appProtocol.name().toLowerCase());
+
+        if (payload != null) {
+            parseAppProtocols(appProtocol, payload);
+        }
+    }
+
+    private void parseAppProtocols(AppLayerProtocols protocol, Map<String, Object> payload) {
         AppLayerParser parser = null;
-        switch (appProtocol) {
+        switch (protocol) {
             case DNS:
                 DnsJsonParser dnsParser = new DnsJsonParser();
                 dnsParser.parse(payload);
@@ -156,49 +161,62 @@ public class JsonPacket extends Packet {
                 try {
                     httpParser.parse(payload);
                     parser = httpParser;
-                } catch (IllegalAccessException e) {
-                    put(APP_LAYER_PROTOCOL, AppLayerProtocols.NOT_SUPPORTED);
+                } catch (IllegalArgumentException e) {
+                    put(APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
                 }
                 break;
-            case HTTPS: break;
-            case SMTP: break;
-            case POP3: break;
+            case SSL:
+                SslJsonParser sslParser = new SslJsonParser();
+                sslParser.parse(payload);
+                parser = sslParser;
+                break;
+            case SMTP:
+            case POP3:
             case IMAP: break;
-            case TLS: break;
             default:
                 LOG.info("Not supported application layer protocol.");
                 break;
         }
+
         if (parser != null) {
             this.putAll(parser);
         }
     }
 
-    private Map<String,Object> detectProtocol(Map<String, Object> layers) {
-        Map<String, Object> appPayload = null;
-        AppLayerProtocols appProtocol = AppLayerProtocols.NOT_SUPPORTED;
-        for (AppLayerProtocols protocol : AppLayerProtocols.values()) {
-            appPayload = (Map<String, Object>) layers.get(protocol.name().toLowerCase());
-            if (appPayload != null) {
-                appProtocol = protocol;
-                break;
-            }
-        }
-        put(APP_LAYER_PROTOCOL, appProtocol);
-        return appPayload;
+    private AppLayerProtocols detectAppProtocol(Map<String, Object> layers) {
+        return Stream.of(AppLayerProtocols.values())
+                .filter(x -> x != AppLayerProtocols.UNKNOWN)
+                .filter(x -> layers.keySet().contains(x.name().toLowerCase()))
+                .findFirst()
+                .orElse(AppLayerProtocols.UNKNOWN);
+
+//        for (AppLayerProtocols protocol : AppLayerProtocols.values()) {
+//            if (protocol == AppLayerProtocols.UNKNOWN) continue;
+//            if (layers.keySet().contains(protocol.name().toLowerCase())) {
+//                appProtocol = protocol;
+//                break;
+//            }
+//        }
+//        if (appProtocol == AppLayerProtocols.UNKNOWN) { // detect https
+//            Integer srcPort = (Integer)get(SRC_PORT);
+//            Integer dstPort = (Integer)get(DST_PORT);
+//            if (srcPort != null && dstPort != null && (srcPort == 443 || dstPort == 443)) {
+//                appProtocol = AppLayerProtocols.HTTPS;
+//            }
+//        }
+
+//        return appProtocol;
     }
 
     private void parseUdp(Map<String, Object> udp) {
         if (udp == null) {
             throw new IllegalArgumentException("Missing UDP layer.");
         }
-        JsonHelper.addIntValue(this, SRC_PORT, (String) udp.get(JSON_UDP_SRC_PORT));
-        JsonHelper.addIntValue(this, DST_PORT, (String) udp.get(JSON_UDP_DST_PORT));
-        JsonHelper.addIntValue(this, UDPSUM, (String) udp.get(JSON_UDP_CHECKSUM));
-        if (get(UDPSUM) != null) {
-            if ((Integer) get(UDPSUM) == 0) {
-                remove(UDPSUM);
-            }
+        put(SRC_PORT, JsonHelper.getIntValue(SRC_PORT, udp.get(JSON_UDP_SRC_PORT)));
+        put(DST_PORT, JsonHelper.getIntValue(DST_PORT, udp.get(JSON_UDP_DST_PORT)));
+        put(UDPSUM, JsonHelper.getIntValue(UDPSUM, udp.get(JSON_UDP_CHECKSUM)));
+        if ((Integer) get(UDPSUM) == 0) {
+            remove(UDPSUM);
         }
 
         try {
@@ -215,97 +233,76 @@ public class JsonPacket extends Packet {
         if (tcp == null) {
             throw new IllegalArgumentException("Missing TCP layer.");
         }
+        put(SRC_PORT, JsonHelper.getIntValue(SRC_PORT, tcp.get(JSON_TCP_SRC_PORT)));
+        put(DST_PORT, JsonHelper.getIntValue(DST_PORT, tcp.get(JSON_TCP_DST_PORT)));
 
-        JsonHelper.addIntValue(this, SRC_PORT, (String) tcp.get(JSON_TCP_SRC_PORT));
-        JsonHelper.addIntValue(this, DST_PORT, (String) tcp.get(JSON_TCP_DST_PORT));
+        put(TCP_HEADER_LENGTH, JsonHelper.getIntValue(TCP_HEADER_LENGTH, tcp.get(JSON_TCP_HEADER_LEN)));
+        put(TCP_SEQ, JsonHelper.getIntValue(TCP_SEQ, tcp.get(JSON_TCP_SEQ)));
+        put(TCP_ACK, JsonHelper.getIntValue(TCP_ACK, tcp.get(JSON_TCP_ACK)));
+        Object payload_len = tcp.get(JSON_TCP_PAYLOAD_LEN);
+        put(PAYLOAD_LEN, JsonHelper.getIntValue(PAYLOAD_LEN, payload_len));
+        String payload = JsonHelper.castString(tcp, JSON_TCP_PAYLOAD);
+        put(HEX_PAYLOAD, payload.replace(":", ""));
+        put(LEN, JsonHelper.getIntValue(LEN, payload_len));
 
-        JsonHelper.addIntValue(this, TCP_HEADER_LENGTH, (String) tcp.get(JSON_TCP_HEADER_LEN));
-        JsonHelper.addIntValue(this, TCP_SEQ, (String) tcp.get(JSON_TCP_SEQ));
-        JsonHelper.addIntValue(this, TCP_ACK, (String) tcp.get(JSON_TCP_ACK));
-        String payload_len = (String) tcp.get(JSON_TCP_PAYLOAD_LEN);
-        JsonHelper.addIntValue(this, PAYLOAD_LEN, payload_len);
-        String payload = tcp.get(JSON_TCP_PAYLOAD) != null ? (String) tcp.get(JSON_TCP_PAYLOAD) : "";
-        JsonHelper.addStringValue(this, TCP_PAYLOAD, payload.replace(":", ""));
-        JsonHelper.addIntValue(this, LEN, payload_len);
-
-        JsonHelper.addBoolValue(this, TCP_FLAG_NS, (String) tcp.get(JSON_TCP_FLAG_NS));
-        JsonHelper.addBoolValue(this, TCP_FLAG_CWR, (String) tcp.get(JSON_TCP_FLAG_CWR));
-        JsonHelper.addBoolValue(this, TCP_FLAG_ECE, (String) tcp.get(JSON_TCP_FLAG_ECE));
-        JsonHelper.addBoolValue(this, TCP_FLAG_URG, (String) tcp.get(JSON_TCP_FLAG_URG));
-        JsonHelper.addBoolValue(this, TCP_FLAG_ACK, (String) tcp.get(JSON_TCP_FLAG_ACK));
-        JsonHelper.addBoolValue(this, TCP_FLAG_PSH, (String) tcp.get(JSON_TCP_FLAG_PSH));
-        JsonHelper.addBoolValue(this, TCP_FLAG_RST, (String) tcp.get(JSON_TCP_FLAG_RST));
-        JsonHelper.addBoolValue(this, TCP_FLAG_SYN, (String) tcp.get(JSON_TCP_FLAG_SYN));
-        JsonHelper.addBoolValue(this, TCP_FLAG_FIN, (String) tcp.get(JSON_TCP_FLAG_FIN));
+        put(TCP_FLAG_NS, JsonHelper.getBoolValue(TCP_FLAG_NS, tcp.get(JSON_TCP_FLAG_NS), false));
+        put(TCP_FLAG_CWR, JsonHelper.getBoolValue(TCP_FLAG_CWR, tcp.get(JSON_TCP_FLAG_CWR), false));
+        put(TCP_FLAG_ECE, JsonHelper.getBoolValue(TCP_FLAG_ECE, tcp.get(JSON_TCP_FLAG_ECE), false));
+        put(TCP_FLAG_URG, JsonHelper.getBoolValue(TCP_FLAG_URG, tcp.get(JSON_TCP_FLAG_URG), false));
+        put(TCP_FLAG_ACK, JsonHelper.getBoolValue(TCP_FLAG_ACK, tcp.get(JSON_TCP_FLAG_ACK), false));
+        put(TCP_FLAG_PSH, JsonHelper.getBoolValue(TCP_FLAG_PSH, tcp.get(JSON_TCP_FLAG_PSH), false));
+        put(TCP_FLAG_RST, JsonHelper.getBoolValue(TCP_FLAG_RST, tcp.get(JSON_TCP_FLAG_RST), false));
+        put(TCP_FLAG_SYN, JsonHelper.getBoolValue(TCP_FLAG_SYN, tcp.get(JSON_TCP_FLAG_SYN), false));
+        put(TCP_FLAG_FIN, JsonHelper.getBoolValue(TCP_FLAG_FIN, tcp.get(JSON_TCP_FLAG_FIN), false));
     }
 
     private void parseIpV4(Map<String, Object> ipV4) {
-        JsonHelper.addIntValue(this, IP_VERSION, IPV4);
-        JsonHelper.addIntValue(this, IP_HEADER_LENGTH, (String) ipV4.get(JSON_IPV4_HEADER_LEN));
-        JsonHelper.addStringValue(this, SRC, (String) ipV4.get(JSON_IPV4_SRC));
-        JsonHelper.addStringValue(this, DST, (String) ipV4.get(JSON_IPV4_DST));
-        JsonHelper.addIntValue(this, TTL, (String) ipV4.get(JSON_IPV4_TTL));
+        if (ipV4 == null) {
+            throw new IllegalArgumentException("Missing ipv4 layer.");
+        }
+        put(IP_VERSION, IPV4);
+        put(IP_HEADER_LENGTH, JsonHelper.getIntValue(IP_HEADER_LENGTH, ipV4.get(JSON_IPV4_HEADER_LEN)));
+        put(SRC, JsonHelper.getStringValue(SRC, ipV4.get(JSON_IPV4_SRC)));
+        put(DST, JsonHelper.getStringValue(DST, ipV4.get(JSON_IPV4_DST)));
+        put(TTL, JsonHelper.getIntValue(TTL, ipV4.get(JSON_IPV4_TTL)));
 
-        JsonHelper.addIntValue(this, IP_FLAGS_DF, (String) ipV4.get(JSON_IPV4_FLAG_DF));
-        JsonHelper.addIntValue(this, IP_FLAGS_MF, (String) ipV4.get(JSON_IPV4_FLAG_MF));
-        JsonHelper.addIntValue(this, FRAGMENT_OFFSET, (String) ipV4.get(JSON_IPV4_FRAGMENT_OFFSET));
+        put(IP_FLAGS_DF, JsonHelper.getIntValue(IP_FLAGS_DF, ipV4.get(JSON_IPV4_FLAG_DF)));
+        put(IP_FLAGS_MF, JsonHelper.getIntValue(IP_FLAGS_MF, ipV4.get(JSON_IPV4_FLAG_MF)));
+        put(FRAGMENT_OFFSET, JsonHelper.getIntValue(FRAGMENT_OFFSET, ipV4.get(JSON_IPV4_FRAGMENT_OFFSET)));
 
-        Integer flagMf = (Integer) get(IP_FLAGS_MF);
-        Integer fragOffset = (Integer) get(FRAGMENT_OFFSET);
-        if (flagMf != null && fragOffset != null) {
-            if (flagMf != 0 || fragOffset != 0) {
-                put(FRAGMENT, true);
-                put(LAST_FRAGMENT, (flagMf == 0));
-            } else {
-                put(FRAGMENT, false);
-            }
+        int flagMf = (int) get(IP_FLAGS_MF);
+        int fragOffset = (int) get(FRAGMENT_OFFSET);
+        if (flagMf > 0 || fragOffset > 0) {
+            put(FRAGMENT, true);
+            put(LAST_FRAGMENT, (flagMf == 0));
+        } else {
+            put(FRAGMENT, false);
         }
 
-        JsonHelper.addLongValue(this, ID, (String) ipV4.get(JSON_IPV4_ID));
+        put(ID, JsonHelper.getLongValue(ID, ipV4.get(JSON_IPV4_ID)));
 
         try {
             Integer protocol = Integer.parseInt((String) ipV4.get(JSON_IPV4_PROTOCOL));
-            JsonHelper.addStringValue(this, PROTOCOL, convertProtocolIdentifier(protocol));
+            put(PROTOCOL, JsonHelper.getStringValue(PROTOCOL, convertProtocolIdentifier(protocol)));
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Missing transport layer protocol from ipv4 header.");
         }
     }
 
     private void parseIpV6(Map<String, Object> ipV6) {
-        JsonHelper.addIntValue(this, IP_VERSION, IPV6);
-        JsonHelper.addStringValue(this, SRC, (String) ipV6.get(JSON_IPV6_SRC));
-        JsonHelper.addStringValue(this, DST, (String) ipV6.get(JSON_IPV6_DST));
-        JsonHelper.addIntValue(this, TTL, (String) ipV6.get(JSON_IPV6_HOP_LIMIT));
-        put(FRAGMENT, false);
-        addIpv6HeaderInfo((String) ipV6.get(JSON_IPV6_NEXT));
-        String protocol = (String) get(PROTOCOL);
-        if (protocol == null || protocol.equals(PROTOCOL_FRAGMENT)) { // extension headers
-            ipV6.entrySet()
-                .stream()
-                .filter(e -> e.getValue() instanceof HashMap)
-                .forEach(e -> {
-                    Map<String, Object> map = (Map<String, Object>) e.getValue();
-                    map.entrySet()
-                            .stream()
-                            .filter(entry -> entry.getKey().endsWith(JSON_IPV6_NEXT_SUFFIX))
-                            .forEach(entry -> addIpv6HeaderInfo((String) entry.getValue()));
-                });
+        if (ipV6 == null) {
+            throw new IllegalArgumentException("Missing ipv6 layer.");
         }
-    }
+        put(IP_VERSION, IPV6);
+        put(SRC, JsonHelper.getStringValue(SRC, ipV6.get(JSON_IPV6_SRC)));
+        put(DST, JsonHelper.getStringValue(DST, ipV6.get(JSON_IPV6_DST)));
+        put(TTL, JsonHelper.getIntValue(TTL, ipV6.get(JSON_IPV6_HOP_LIMIT)));
 
-    private void addIpv6HeaderInfo(String headerId) {
-        if (headerId == null) return;
-        try {
-            int prot = Integer.parseInt(headerId);
-            String protocol = convertProtocolIdentifier(prot);
-            if (protocol != null) {
-                JsonHelper.addStringValue(this, PROTOCOL, protocol);
-            }
-            if (prot == IPV6_FRAGMENT_CODE) {
-                put(FRAGMENT, true);
-            }
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Malformed ipv6 header.");
+        if (ipV6.containsKey(JSON_IPV6_FRAGMENT_HEADER)) {
+            put(FRAGMENT, true);
+        } else {
+            put(FRAGMENT, false);
+            put(PROTOCOL, PROTOCOL_FRAGMENT);
         }
     }
 
