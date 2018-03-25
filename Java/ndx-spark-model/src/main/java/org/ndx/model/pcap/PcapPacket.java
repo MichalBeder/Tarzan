@@ -1,24 +1,17 @@
 package org.ndx.model.pcap;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.commons.codec.binary.Hex;
 import org.ndx.model.Packet;
-import org.ndx.model.parsers.applayer.AppLayerParser;
-import org.ndx.model.parsers.applayer.DnsJsonParser;
-import org.ndx.model.parsers.applayer.DnsPcapParser;
-import org.ndx.model.parsers.applayer.HttpPcapParser;
-import org.ndx.model.pcap.FlowModel.FlowKey;
+import org.ndx.model.parsers.applayer.*;
 import org.ndx.model.pcap.PacketModel.RawFrame;
+
 import java.util.function.Consumer;
-import com.google.protobuf.ByteString;
 
 public class PcapPacket extends Packet {
 //    protected static final long serialVersionUID = 8723206921174160146L;
 
-    private static long UNIX_BASE_TICKS = 621355968000000000L;
-    private static long TICKS_PER_MILLISECOND = 10000L;
+    private static final long UNIX_BASE_TICKS = 621355968000000000L;
+    private static final long TICKS_PER_MILLISECOND = 10000L;
     
     private static final int ETHERNET_HEADER_SIZE = 14;
     private static final int ETHERNET_TYPE_OFFSET = 12;
@@ -57,20 +50,18 @@ public class PcapPacket extends Packet {
      */
     @Override
     public void parsePacket(RawFrame frame) {
-        parsePacket(frame, null);
+        parsePacket(frame, this::processTcpUdpPayload);
     }
 
     public void parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload) {
-        parsePacket(frame.getLinkTypeValue(), getTimeStamp(frame), frame.getFrameNumber(),
-                frame.getData().toByteArray(), 65535, processPayload);
-    }
+        byte[] packetData = frame.getData().toByteArray();
+        int snapLen = 65535;
 
-    public void parsePacket(int linkType, long timestamp, int number, byte[] packetData,
-                                         int snapLen, Consumer<PacketPayload> processPayload) {
-        put(TIMESTAMP, timestamp);
-        put(NUMBER, number);
+        put(FRAME_LENGTH, frame.getFrameLength());
+        put(TIMESTAMP, convertTimeStamp(frame.getTimeStamp()));
+        put(NUMBER, frame.getFrameNumber());
 
-        int ipStart = findIPStart(linkType, packetData);
+        int ipStart = findIPStart(frame.getLinkTypeValue(), packetData);
         if (ipStart == -1)
             return;
 
@@ -79,11 +70,11 @@ public class PcapPacket extends Packet {
 
         if (ipProtocolHeaderVersion == 4 || ipProtocolHeaderVersion == 6) {
             int ipHeaderLen = getInternetProtocolHeaderLength(packetData, ipProtocolHeaderVersion, ipStart);
-            int totalLength = 0;
+            int totalLength;
             if (ipProtocolHeaderVersion == 4) {
                 buildInternetProtocolV4Packet(packetData, ipStart);
                 totalLength = BitConverter.convertShort(packetData, ipStart + IP_TOTAL_LEN_OFFSET);
-            } else if (ipProtocolHeaderVersion == 6) {
+            } else {
                 buildInternetProtocolV6Packet(packetData, ipStart);
                 ipHeaderLen += buildInternetProtocolV6ExtensionHeaderFragment(packetData, ipStart);
                 int payloadLength = BitConverter.convertShort(packetData, ipStart + IPV6_PAYLOAD_LEN_OFFSET);
@@ -102,55 +93,93 @@ public class PcapPacket extends Packet {
                     packetPayload = buildTcpAndUdpPacket(packetData, ipProtocolHeaderVersion, ipStart,
                             ipHeaderLen, totalLength, snapLen);
                 }
+                if (PROTOCOL_TCP.equals(protocol))
+                    this.put(HEX_PAYLOAD, packetPayload != null ? Hex.encodeHexString(packetPayload) : "");
                 put(LEN, packetPayload != null ? packetPayload.length : 0);
-
-                if (PROTOCOL_TCP.equals(protocol) && packetPayload != null) {
-                    this.put(TCP_PAYLOAD, Hex.encodeHexString(packetPayload));
-                }
-
-                if (processPayload == null) {
-                    processPacketPayload(packetPayload);
-                } else {
-                    processPacketPayload(packetPayload, processPayload);
-                }
+                processPacketPayload(packetPayload, processPayload);
             }
         }
     }
 
-    private void processPacketPayload(byte[] payload) {
-        AppLayerParser parser = null;
-        AppLayerProtocols protocol;
-        if (isDnsProtocol()) {
+    private void processTcpUdpPayload(PacketPayload p) {
+        byte[] payload = p.getPayload();
+        if (payload == null || payload.length == 0) {
+            put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
+            return;
+        }
+        if (tryParseDnsProtocol(payload)) return;
+        if (tryParseEmailProtocol()) return;
+        if (tryParseHttpProtocol(payload)) return;
+        if (detectHttpsProtocol()) return; // TODO replace with ssl parser and detect there
+        put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
+    }
+
+    private boolean detectHttpsProtocol() {
+        Integer src = (Integer) get(SRC_PORT);
+        Integer dst = (Integer) get(DST_PORT);
+        if (src != null && dst != null && (src == 443 || dst == 443)) {
+            put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.SSL);
+            put(Packet.PROTOCOL_OVER_SSL, Packet.ProtocolsOverSsl.HTTPS);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean tryParseHttpProtocol(byte[] payload) {
+        HttpPcapParser httpParser = new HttpPcapParser();
+        try {
+            httpParser.parse(payload);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.HTTP);
+        putAll(httpParser);
+        return true;
+    }
+
+    private boolean tryParseEmailProtocol() {
+        Integer src = (Integer) get(SRC_PORT);
+        Integer dst = (Integer) get(DST_PORT);
+        if (src == null || dst == null) {
+            return false;
+        }
+
+        AppLayerProtocols protocol = AppLayerProtocols.UNKNOWN;
+        if (src == POP3_PORT_1 || dst == POP3_PORT_1 || src == POP3_PORT_2 || dst == POP3_PORT_2) {
+            protocol = AppLayerProtocols.POP3;
+        } else if (src == IMAP_PORT_1 || dst == IMAP_PORT_1 || src == IMAP_PORT_2 || dst == IMAP_PORT_2) {
+            protocol = AppLayerProtocols.IMAP;
+        } else if (src == SMTP_PORT_1 || dst == SMTP_PORT_1 || src == SMTP_PORT_2 || dst == SMTP_PORT_2
+                || src == SMTP_PORT_3 || dst == SMTP_PORT_3) {
+            protocol = AppLayerProtocols.SMTP;
+        }
+
+        if (protocol == AppLayerProtocols.UNKNOWN) {
+            return false;
+        }
+        put(Packet.APP_LAYER_PROTOCOL, protocol);
+        return true;
+    }
+
+    private boolean tryParseDnsProtocol(byte[] payload) {
+        Integer src = (Integer) get(SRC_PORT);
+        Integer dst = (Integer) get(DST_PORT);
+        if (src != null && dst != null && (src == 53 || dst == 53)) {
             try {
                 DnsPcapParser dnsParser = new DnsPcapParser();
-                protocol = AppLayerProtocols.DNS;
                 dnsParser.parse(payload);
+                put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.DNS);
+                putAll(dnsParser);
+                return true;
             } catch (IllegalArgumentException e) {
-                protocol = AppLayerProtocols.NOT_SUPPORTED;
-            }
-        } else {
-            HttpPcapParser httpParser = new HttpPcapParser();
-            try {
-                httpParser.parse(payload);
-                protocol = AppLayerProtocols.HTTP;
-                parser = httpParser;
-            } catch (IllegalArgumentException e) {
-                protocol = AppLayerProtocols.NOT_SUPPORTED;
+                LOG.warn("Malformed DNS packet.");
+                return false;
             }
         }
-
-        put(Packet.APP_LAYER_PROTOCOL, protocol);
-        if (parser != null) {
-            putAll(parser);
-        }
+        return false;
     }
 
-    private boolean isDnsProtocol() {
-        return 53 == (int)get(SRC_PORT) || 53 == (int)get(DST_PORT);
-    }
-
-    private long getTimeStamp(RawFrame frame) {
-        long timeStamp = frame.getTimeStamp();
+    private long convertTimeStamp(long timeStamp) {
         return (timeStamp - UNIX_BASE_TICKS) / TICKS_PER_MILLISECOND;
     }
 

@@ -15,7 +15,7 @@ public class HttpPcapParser extends AppLayerParser  {
 
     private static final String HTTP_PCAP_HOST = "Host";
 
-    public void parse(byte[] payload) throws IllegalArgumentException {
+    public void parse(byte[] payload) {
         try {
             tryParsePcapHttpRequest(payload);
         } catch (IOException | HttpException | IllegalArgumentException e) {
@@ -27,7 +27,7 @@ public class HttpPcapParser extends AppLayerParser  {
         }
     }
 
-    private void tryParsePcapHttpRequest(byte[] payload) throws IOException, HttpException, IllegalArgumentException {
+    private void tryParsePcapHttpRequest(byte[] payload) throws IOException, HttpException {
         SessionInputBufferImpl buffer = getSessionBuffer(payload);
         DefaultHttpRequestParser requestParser = new DefaultHttpRequestParser(buffer);
         HttpRequest request = requestParser.parse();
@@ -44,7 +44,7 @@ public class HttpPcapParser extends AppLayerParser  {
         put(Packet.HTTP_URL, host);
     }
 
-    private void tryParsePcapHttpResponse(byte[] payload) throws IOException, HttpException, IllegalArgumentException {
+    private void tryParsePcapHttpResponse(byte[] payload) throws IOException, HttpException {
         SessionInputBufferImpl buffer = getSessionBuffer(payload);
         DefaultHttpResponseParser responseParser = new DefaultHttpResponseParser(buffer);
         HttpResponse response = responseParser.parse();

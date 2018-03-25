@@ -125,6 +125,7 @@ public class Tshark {
         packets.collect().forEach(x -> {
             if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.HTTP)
                 return;
+            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
             boolean isResponse = (boolean) x.get(Packet.HTTP_IS_RESPONSE);
             if (isResponse) {
                 System.out.println("Req/Res: Response");
@@ -145,7 +146,8 @@ public class Tshark {
         packets.collect().forEach(x -> {
             if (!x.get(Packet.PROTOCOL).equals(Packet.PROTOCOL_TCP))
                 return;
-            String payload = (String) x.get(Packet.TCP_PAYLOAD);
+            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
+            String payload = (String) x.get(Packet.HEX_PAYLOAD);
             if (payload != null) {
                 System.out.println(payload);
             }
@@ -160,6 +162,7 @@ public class Tshark {
         packets.collect().forEach(x -> {
             if ((Integer) x.get(Packet.IP_VERSION) != 6)
                 return;
+            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
             String protocol = (String) x.get(Packet.PROTOCOL);
             System.out.println("Protocol: " + protocol);
             if ((boolean) x.get(Packet.FRAGMENT)) {
@@ -184,6 +187,7 @@ public class Tshark {
             if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.DNS) {
                 return;
             }
+            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
             String qOrR = "Query";
             if ((boolean) x.get(Packet.DNS_IS_RESPONSE)) {
                 qOrR = "Response";
@@ -203,6 +207,19 @@ public class Tshark {
             System.out.println();
         });
     }
+
+    public static void testAppProtocols(JavaSparkContext sc, String path) {
+        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        if (packets == null) return;
+        packets.collect().forEach(x -> {
+            Packet.AppLayerProtocols protocol = (Packet.AppLayerProtocols)x.get(Packet.APP_LAYER_PROTOCOL);
+            Integer no = (Integer) x.get(Packet.NUMBER);
+            if (protocol == null || no == null) return;
+            System.out.println("Packet " + no + ": " + protocol.name());
+            System.out.println();
+        });
+    }
 }
 
-//TODO 17.3. 2018 IPv6 pre JsonPacket, otestovat tcp payload, vyhladavanie v tcp payloade (v hex stringu), detekcia email protokolov, skusit parser pre pcap
+/* TODO 20.3. 2018 vyhladavanie v tcp payloade (v hex stringu), otestovanie pcap paketu ci funguje dns, http, https a email, otestovat tcp/udp payload */
+// TODO upravit consumer v pcap a vymazat parse(...)

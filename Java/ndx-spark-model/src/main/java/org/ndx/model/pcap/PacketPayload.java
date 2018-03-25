@@ -1,10 +1,9 @@
 package org.ndx.model.pcap;
 
 public class PacketPayload {
-    PcapPacket _packet;
-    byte[] _payload;
-    public PacketPayload(PcapPacket packet, byte[] payload)
-    {
+    private PcapPacket _packet;
+    private byte[] _payload;
+    public PacketPayload(PcapPacket packet, byte[] payload) {
         _packet = packet;
         _payload = payload;
     }

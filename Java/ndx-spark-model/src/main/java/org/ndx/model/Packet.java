@@ -1,13 +1,18 @@
 package org.ndx.model;
 
 import com.google.protobuf.ByteString;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ndx.model.pcap.FlowModel;
 import org.ndx.model.pcap.PacketModel;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public abstract class Packet extends HashMap<String, Object> {
 
@@ -28,21 +33,39 @@ public abstract class Packet extends HashMap<String, Object> {
     protected static final int IPV6_FRAGMENT_CODE = 44;
 
     public enum AppLayerProtocols {
-        NOT_SUPPORTED,
+        UNKNOWN,
+        SSL,
         DNS,
         HTTP,
+        SMTP,
+        POP3,
+        IMAP,
+    }
+    public static final String APP_LAYER_PROTOCOL = "app_protocol";
+
+    public enum ProtocolsOverSsl {
+        UNKNOWN,
         HTTPS,
         SMTP,
         POP3,
         IMAP,
-        TLS
     }
-    public static final String APP_LAYER_PROTOCOL = "app_protocol";
+    public static final String PROTOCOL_OVER_SSL = "ssl_protocol";
+
+    protected static final int HTTPS_PORT = 443;
+    protected static final int SMTP_PORT_1 = 25;
+    protected static final int SMTP_PORT_2 = 587;
+    protected static final int SMTP_PORT_3 = 465;
+    protected static final int IMAP_PORT_1 = 143;
+    protected static final int IMAP_PORT_2 = 993;
+    protected static final int POP3_PORT_1 = 110;
+    protected static final int POP3_PORT_2 = 995;
 
     public static final String TIMESTAMP = "ts";
     public static final String TIMESTAMP_USEC = "ts_usec";
     public static final String TIMESTAMP_MICROS = "ts_micros";
     public static final String NUMBER = "number";
+    public static final String FRAME_LENGTH = "frame_len";
 
     /*** Network layer ***/
     public static final String TTL = "ttl";
@@ -81,11 +104,14 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String REASSEMBLED_DATAGRAM_FRAGMENTS = "reassembled_datagram_fragments";
     public static final String PAYLOAD_LEN = "payload_len";
     public static final int UDP_HEADER_SIZE = 8;
-    public static final String TCP_PAYLOAD = "tcp_payload";
+    public static final String HEX_PAYLOAD = "tcp_payload"; // TCP or UDP payload in hex values
 
     /*** Application layer ***/
+
     /* DNS */
     public static final String DNS_ANSWER_CNT = "dns_answer_cnt";
+    public static final String DNS_AUTH_CNT = "dns_auth_cnt";
+    public static final String DNS_ADD_CNT = "dns_add_cnt";
     public static final String DNS_QUERY_CNT = "dns_query_cnt";
     public static final String DNS_IS_RESPONSE = "dns_query_response";
     public static final String DNS_ID = "dns_id";
@@ -93,13 +119,18 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String DNS_QUERIES = "dns_queries";
     /* format: "name: type, class, rdata" */
     public static final String DNS_ANSWERS = "dns_answers";
-
     /* HTTP */
     public static final String HTTP_VERSION = "http_version";
     public static final String HTTP_URL = "http_url";
     public static final String HTTP_PAYLOAD = "http_payload";
     public static final String HTTP_IS_RESPONSE = "http_is_response";
     public static final String HTTP_METHOD = "http_method";
+    /* SSL */
+    // array list of ssl records, one packet may contain one or more ssl records
+    public static final String SSL_RECORDS = "ssl_records";
+    public static final String SSL_CONTENT_TYPE = "ssl_content_type";
+    public static final String SSL_VERSION = "ssl_version";
+    public static final String SSL_RECORD_LENGTH = "ssl_record_length";
 
     public static FlowModel.FlowKey flowKeyParse(String flowkey) {
         String[] parts = flowkey.split("\\[|@|:|->|\\]");
@@ -209,6 +240,16 @@ public abstract class Packet extends HashMap<String, Object> {
 
     public static String convertProtocolIdentifier(int identifier) {
         return protocols.get(identifier);
+    }
+
+    public Map<String, Integer> findKeyWords(ArrayList<String> keywords) {
+        String payload = (String) get(HEX_PAYLOAD);
+        if (payload == null) {
+            return null;
+        }
+        Map<String, Integer> test = keywords.stream()
+                .collect(Collectors.toMap(x -> x, x -> StringUtils.countMatches(payload, x)));
+        return test;
     }
 
     public void parsePacket(String frame) {}
