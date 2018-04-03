@@ -16,7 +16,7 @@ public class JsonHelper {
     }
 
     public static boolean getBoolValue(String key, Object value, boolean defaultValue) {
-        if (value == null || !(value instanceof String)) {
+        if (!(value instanceof String)) {
             LOG.warn("Missing value - " + key);
             return defaultValue;
         }
@@ -31,7 +31,7 @@ public class JsonHelper {
     }
 
     public static String getStringValue(String key, Object value) {
-        if (value == null || !(value instanceof String)) {
+        if (!(value instanceof String)) {
             LOG.warn("Missing value - " + key);
             return "";
         }
@@ -47,7 +47,7 @@ public class JsonHelper {
     }
 
     public static long getLongValue(String key, Object value, long defaultValue) {
-        if (value == null || !(value instanceof String)) {
+        if (!(value instanceof String)) {
             LOG.warn("Missing value - " + key);
             return defaultValue;
         }
@@ -65,7 +65,7 @@ public class JsonHelper {
     }
 
     public static int getIntValue(String key, Object value, int defaultValue) {
-        if (value == null || !(value instanceof String)) {
+        if (!(value instanceof String)) {
             LOG.warn("Missing value - " + key);
             return defaultValue;
         }

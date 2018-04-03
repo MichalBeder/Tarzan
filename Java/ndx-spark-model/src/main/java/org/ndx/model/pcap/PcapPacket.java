@@ -8,7 +8,6 @@ import org.ndx.model.pcap.PacketModel.RawFrame;
 import java.util.function.Consumer;
 
 public class PcapPacket extends Packet {
-//    protected static final long serialVersionUID = 8723206921174160146L;
 
     private static final long UNIX_BASE_TICKS = 621355968000000000L;
     private static final long TICKS_PER_MILLISECOND = 10000L;
