@@ -52,6 +52,9 @@
                                 <includes>
                                     <include>*:*</include>
                                 </includes>
+                                <excludes>
+                                    <exclude>commons-beanutils</exclude>
+                                </excludes>
                             </artifactSet>
                         </configuration>
                     </execution>

@@ -23,8 +23,8 @@ import java.util.ArrayList;
 
 import static org.ndx.model.Statistics.timestampToSeconds;
 
-public class Tshark {
-    private static final Log LOG = LogFactory.getLog(Packet.class);
+public class JavaApi {
+    private static final Log LOG = LogFactory.getLog(JavaApi.class);
     private static final String PCAP = "pcap";
     private static final String CAP = "cap";
     private static final String JSON = "json";
@@ -48,7 +48,6 @@ public class Tshark {
     private static JavaRDD<Packet> jsonToPacket(JavaSparkContext sc, String path) {
         JavaPairRDD<LongWritable, Text> lines = sc.newAPIHadoopFile(path,
                 TextInputFormat.class, LongWritable.class, Text.class, new Configuration());
-        //TODO filter x._2.toString().startsWith("{\"timestamp")
         JavaRDD<String> jsons = lines.filter(x -> x._2.toString().startsWith("{\"timestamp")).map(x -> x._2.toString());
         return jsons.map(jsonFrame -> {
             Packet packet = new JsonPacket();
