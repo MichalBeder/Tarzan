@@ -30,7 +30,6 @@ public abstract class Packet extends HashMap<String, Object> {
         protocols.put(17, PROTOCOL_UDP);
         protocols.put(44, PROTOCOL_FRAGMENT);
     }
-    protected static final int IPV6_FRAGMENT_CODE = 44;
 
     public enum AppLayerProtocols {
         UNKNOWN,
@@ -52,14 +51,14 @@ public abstract class Packet extends HashMap<String, Object> {
     }
     public static final String PROTOCOL_OVER_SSL = "ssl_protocol";
 
-    protected static final int HTTPS_PORT = 443;
-    protected static final int SMTP_PORT_1 = 25;
-    protected static final int SMTP_PORT_2 = 587;
-    protected static final int SMTP_PORT_3 = 465;
-    protected static final int IMAP_PORT_1 = 143;
-    protected static final int IMAP_PORT_2 = 993;
-    protected static final int POP3_PORT_1 = 110;
-    protected static final int POP3_PORT_2 = 995;
+    public static final int HTTPS_PORT = 443;
+    public static final int SMTP_PORT_1 = 25;
+    public static final int SMTP_PORT_2 = 587;
+    public static final int SMTP_PORT_3 = 465;
+    public static final int IMAP_PORT_1 = 143;
+    public static final int IMAP_PORT_2 = 993;
+    public static final int POP3_PORT_1 = 110;
+    public static final int POP3_PORT_2 = 995;
 
     public static final String TIMESTAMP = "ts";
     public static final String TIMESTAMP_USEC = "ts_usec";
@@ -100,11 +99,9 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String TCP_FLAG_RST = "tcp_flag_rst";
     public static final String TCP_FLAG_SYN = "tcp_flag_syn";
     public static final String TCP_FLAG_FIN = "tcp_flag_fin";
-    public static final String REASSEMBLED_TCP_FRAGMENTS = "reassembled_tcp_fragments";
-    public static final String REASSEMBLED_DATAGRAM_FRAGMENTS = "reassembled_datagram_fragments";
     public static final String PAYLOAD_LEN = "payload_len";
     public static final int UDP_HEADER_SIZE = 8;
-    public static final String HEX_PAYLOAD = "tcp_payload"; // TCP or UDP payload in hex values
+    public static final String TCP_HEX_PAYLOAD = "tcp_payload"; // TCP or UDP payload in hex values
 
     /*** Application layer ***/
 
@@ -132,8 +129,13 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String SSL_VERSION = "ssl_version";
     public static final String SSL_RECORD_LENGTH = "ssl_record_length";
 
-    public static FlowModel.FlowKey flowKeyParse(String flowkey) {
-        String[] parts = flowkey.split("\\[|@|:|->|\\]");
+    public static String getLogPrefix(Integer number) {
+        if (number == null) number = 0;
+        return "(Packet " + number + ") ";
+    }
+
+    public static FlowModel.FlowKey flowKeyParse(String flowstring) {
+        String[] parts = flowstring.split("\\[|@|:|->|\\]");
         FlowModel.FlowKey.Builder fb = FlowModel.FlowKey.newBuilder();
         fb.setProtocol(ByteString.copyFromUtf8(parts[1]));
         fb.setSourceAddress(ByteString.copyFromUtf8(parts[2]));
@@ -242,16 +244,15 @@ public abstract class Packet extends HashMap<String, Object> {
         return protocols.get(identifier);
     }
 
-    public Map<String, Integer> findKeyWords(ArrayList<String> keywords) {
-        String payload = (String) get(HEX_PAYLOAD);
-        if (payload == null) {
-            return null;
-        }
-        Map<String, Integer> test = keywords.stream()
-                .collect(Collectors.toMap(x -> x, x -> StringUtils.countMatches(payload, x)));
-        return test;
+    public Map<String, Integer> findKeyWords(List<String> keywords) {
+        String payload = (String) get(TCP_HEX_PAYLOAD);
+        if (payload == null) return null;
+        return keywords.stream()
+                .collect(Collectors.toMap(x -> x, x -> StringUtils.countMatches(payload, Hex.encodeHexString(x.getBytes()))));
     }
 
     public void parsePacket(String frame) {}
+
     public void parsePacket(PacketModel.RawFrame frame) {}
+
 }

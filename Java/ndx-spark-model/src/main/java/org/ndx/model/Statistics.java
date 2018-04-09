@@ -1,13 +1,19 @@
 package org.ndx.model;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.ndx.model.pcap.ConversationModel.FlowAttributes;
 import org.ndx.model.pcap.FlowModel.FlowKey;
 import org.ndx.model.pcap.PcapPacket;
 
 import java.util.Date;
+import java.util.Map;
 
 public class Statistics {
-    private static long MILISECONDS_TO_SECONDS = 1000L;
+
+    private static final Log LOG = LogFactory.getLog(Statistics.class);
+
+    private static final long MILISECONDS_TO_SECONDS = 1000L;
 
     private static java.text.DecimalFormat df = new java.text.DecimalFormat("#.###");
 
@@ -18,7 +24,32 @@ public class Statistics {
     public static double timestampToSeconds(long timestamp) {
         return (((double)timestamp) / (double) MILISECONDS_TO_SECONDS);
     }
- 
+
+    public static Map<String, Integer> mergeMaps(Map<String, Integer> map1, Map<String, Integer> map2) {
+        map2.forEach((k, v) -> map1.merge(k, v, (v1, v2) -> v1 + v2));
+        return map1;
+    }
+
+    public static String getService(String srcPort, String dstPort) {
+        String port = "";
+        try {
+            port = Integer.parseInt(srcPort) < Integer.parseInt(dstPort) ? srcPort : dstPort;
+        } catch (NumberFormatException e) {
+            LOG.warn("Given port is not a number.");
+        }
+        return port;
+    }
+
+    public static String getDirection(String srcPort, String dstPort) {
+        String direction = "";
+        try {
+            direction = Integer.parseInt(srcPort) < Integer.parseInt(dstPort) ? "down" : "up";
+        } catch (NumberFormatException e) {
+            LOG.warn("Given port is not a number.");
+        }
+        return direction;
+    }
+
     public static FlowAttributes merge (FlowAttributes x, FlowAttributes y) {
         FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
         builder.setFirstSeen(Math.min(x.getFirstSeen(),y.getFirstSeen()));

@@ -146,7 +146,7 @@ public class JavaApi {
             if (!x.get(Packet.PROTOCOL).equals(Packet.PROTOCOL_TCP))
                 return;
             System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
-            String payload = (String) x.get(Packet.HEX_PAYLOAD);
+            String payload = (String) x.get(Packet.TCP_HEX_PAYLOAD);
             if (payload != null) {
                 System.out.println(payload);
             }
@@ -219,6 +219,3 @@ public class JavaApi {
         });
     }
 }
-
-/* TODO 20.3. 2018 vyhladavanie v tcp payloade (v hex stringu), otestovanie pcap paketu ci funguje dns, http, https a email, otestovat tcp/udp payload */
-// TODO upravit consumer v pcap a vymazat parse(...)

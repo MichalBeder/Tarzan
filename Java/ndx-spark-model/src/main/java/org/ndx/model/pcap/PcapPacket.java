@@ -55,10 +55,11 @@ public class PcapPacket extends Packet {
     public void parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload) {
         byte[] packetData = frame.getData().toByteArray();
         int snapLen = 65535;
+        int frameNumber = frame.getFrameNumber();
 
         put(FRAME_LENGTH, frame.getFrameLength());
         put(TIMESTAMP, convertTimeStamp(frame.getTimeStamp()));
-        put(NUMBER, frame.getFrameNumber());
+        put(NUMBER, frameNumber);
 
         int ipStart = findIPStart(frame.getLinkTypeValue(), packetData);
         if (ipStart == -1)
@@ -82,7 +83,8 @@ public class PcapPacket extends Packet {
             put(IP_HEADER_LENGTH, ipHeaderLen);
 
             if ((Boolean) get(FRAGMENT)) {
-                LOG.info("IP fragment detected - fragmented packets are not supported.");
+                LOG.info(getLogPrefix(frameNumber) +
+                        "IP fragment detected - fragmented packets are not supported.");
             } else {
                 String protocol = (String) get(PROTOCOL);
                 int payloadDataStart = ipStart + ipHeaderLen;
@@ -93,7 +95,7 @@ public class PcapPacket extends Packet {
                             ipHeaderLen, totalLength, snapLen);
                 }
                 if (PROTOCOL_TCP.equals(protocol))
-                    this.put(HEX_PAYLOAD, packetPayload != null ? Hex.encodeHexString(packetPayload) : "");
+                    this.put(TCP_HEX_PAYLOAD, packetPayload != null ? Hex.encodeHexString(packetPayload) : "");
                 put(LEN, packetPayload != null ? packetPayload.length : 0);
                 processPacketPayload(packetPayload, processPayload);
             }
@@ -109,16 +111,17 @@ public class PcapPacket extends Packet {
         if (tryParseDnsProtocol(payload)) return;
         if (tryParseEmailProtocol()) return;
         if (tryParseHttpProtocol(payload)) return;
-        if (detectHttpsProtocol()) return; // TODO replace with ssl parser and detect there
+        if (tryParseSslProtocol()) return;
         put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
     }
 
-    private boolean detectHttpsProtocol() {
+    private boolean tryParseSslProtocol() {
         Integer src = (Integer) get(SRC_PORT);
         Integer dst = (Integer) get(DST_PORT);
-        if (src != null && dst != null && (src == 443 || dst == 443)) {
+        ProtocolsOverSsl sslProtocol = SslHelper.detectSslProtocol(src, dst);
+        if (sslProtocol != ProtocolsOverSsl.UNKNOWN) {
             put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.SSL);
-            put(Packet.PROTOCOL_OVER_SSL, Packet.ProtocolsOverSsl.HTTPS);
+            put(Packet.PROTOCOL_OVER_SSL, sslProtocol);
             return true;
         }
         return false;
@@ -144,12 +147,11 @@ public class PcapPacket extends Packet {
         }
 
         AppLayerProtocols protocol = AppLayerProtocols.UNKNOWN;
-        if (src == POP3_PORT_1 || dst == POP3_PORT_1 || src == POP3_PORT_2 || dst == POP3_PORT_2) {
+        if (src == POP3_PORT_1 || dst == POP3_PORT_1) {
             protocol = AppLayerProtocols.POP3;
-        } else if (src == IMAP_PORT_1 || dst == IMAP_PORT_1 || src == IMAP_PORT_2 || dst == IMAP_PORT_2) {
+        } else if (src == IMAP_PORT_1 || dst == IMAP_PORT_1) {
             protocol = AppLayerProtocols.IMAP;
-        } else if (src == SMTP_PORT_1 || dst == SMTP_PORT_1 || src == SMTP_PORT_2 || dst == SMTP_PORT_2
-                || src == SMTP_PORT_3 || dst == SMTP_PORT_3) {
+        } else if (src == SMTP_PORT_1 || dst == SMTP_PORT_1 || src == SMTP_PORT_2 || dst == SMTP_PORT_2) {
             protocol = AppLayerProtocols.SMTP;
         }
 
@@ -171,7 +173,7 @@ public class PcapPacket extends Packet {
                 putAll(dnsParser);
                 return true;
             } catch (IllegalArgumentException e) {
-                LOG.warn("Malformed DNS packet.");
+                LOG.warn(getLogPrefix((Integer) get(NUMBER)) + "Malformed DNS packet.");
                 return false;
             }
         }
@@ -407,18 +409,22 @@ public class PcapPacket extends Packet {
     }
     
     private byte[] readPayload(byte[] packetData, int payloadDataStart, int payloadLength, int snapLen) {
+        Integer frameNumber = (Integer) get(NUMBER);
         if (payloadLength < 0) {
-            LOG.warn("Malformed packet - negative payload length. Returning empty payload.");
+            LOG.warn(getLogPrefix(frameNumber) +
+                    "Malformed packet - negative payload length. Returning empty payload.");
             return new byte[0];
         }
         if (payloadDataStart > packetData.length) {
-            LOG.warn("Payload start (" + payloadDataStart + ") is larger than packet data (" +
+            LOG.warn(getLogPrefix(frameNumber) +
+                    "Payload start (" + payloadDataStart + ") is larger than packet data (" +
                     packetData.length + "). Returning empty payload.");
             return new byte[0];
         }
         if (payloadDataStart + payloadLength > packetData.length) {
             if (payloadDataStart + payloadLength <= snapLen) // Only corrupted if it was not because of a reduced snap length
-                LOG.warn("Payload length field value (" + payloadLength + ") is larger than available packet data ("
+                LOG.warn(getLogPrefix(frameNumber) +
+                        "Payload length field value (" + payloadLength + ") is larger than available packet data ("
                         + (packetData.length - payloadDataStart)
                         + "). Packet may be corrupted. Returning only available data.");
             payloadLength = packetData.length - payloadDataStart;
