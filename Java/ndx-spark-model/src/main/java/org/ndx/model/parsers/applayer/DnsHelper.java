@@ -4,7 +4,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 public final class DnsHelper {
-    protected static final Log LOG = LogFactory.getLog(DnsHelper.class);
+    private static final Log LOG = LogFactory.getLog(DnsHelper.class);
 
     public static String idToType (String id) throws NumberFormatException {
         String type;

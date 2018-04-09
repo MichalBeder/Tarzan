@@ -1,7 +1,5 @@
 package org.ndx.model.parsers.applayer;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.ndx.model.Packet;
 import org.xbill.DNS.Header;
 import org.xbill.DNS.Message;
@@ -12,8 +10,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class DnsPcapParser extends AppLayerParser {
-
-    private static final Log LOG = LogFactory.getLog(DnsPcapParser.class);
 
     private static final int PCAP_DNS_COUNT_QUERIES = 0;
     private static final int PCAP_DNS_COUNT_ASWERS = 1;
