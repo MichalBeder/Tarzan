@@ -1,0 +1,79 @@
+%spark
+import org.ndx.tshark.ScalaApi
+val packets = ScalaApi.getPackets(sc, "hdfs://neshpc1.fit.vutbr.cz/user/xbeder00/http_m2.json")
+val smtpPackets = ScalaApi.getPackets(sc, "hdfs://neshpc1.fit.vutbr.cz/user/xbeder00/smtp.json")
+ScalaApi.registerHttpHostnames("httpHostnames", packets, spark)
+ScalaApi.registerKeywords("keywords", packets, List("sme.sk", "site.the.cz"), spark, sc)
+ScalaApi.registerDnsData("dnsData", packets, spark)
+ScalaApi.registerFlowStatistics("flowStatistics", packets, spark)
+ScalaApi.registerFlowStatistics("smtpFlowStatistics", smtpPackets, spark)
+
+--URLs from http headers
+%sql
+select url, count(*) from httpHostnames group by url
+
+--Keywords
+%sql
+select keyword, count from keywords
+
+--Dns query record types
+%sql
+select recordType, count(*) from dnsData where recordType != "" group by recordType
+
+--Timeline - Flows (flows/time)
+%sql
+select from_unixtime(unix_timestamp(first, 'yyyy-MM-dd HH:mm:ss.SSS'), 'yyyy-MM-dd HH:mm'), count(*)
+from flowStatistics group by first order by first
+
+--Timeline - Packets (packets/time)
+%sql
+select from_unixtime(unix_timestamp(first, 'yyyy-MM-dd HH:mm:ss.SSS'), 'yyyy-MM-dd HH:mm'), sum(packets)
+from flowStatistics group by first order by first
+
+--Timeline - Data (B/time)
+%sql
+select from_unixtime(unix_timestamp(first, 'yyyy-MM-dd HH:mm:ss.SSS'), 'yyyy-MM-dd HH:mm'), sum(bytes)
+from flowStatistics group by first order by first
+
+--Timeline - Http traffic (packets/time)
+%sql
+select from_unixtime(unix_timestamp(first, 'yyyy-MM-dd HH:mm:ss.SSS'), 'yyyy-MM-dd HH:mm') as time, sum(packets)
+from flowStatistics where service == "80" group by time order by time
+
+--Timeline - Https traffic (packets/time)
+%sql
+select from_unixtime(unix_timestamp(first, 'yyyy-MM-dd HH:mm:ss.SSS'), 'yyyy-MM-dd HH:mm') as time, sum(packets)
+from flowStatistics where service == "443" group by time order by time
+
+--Http vs. Https
+%sql
+select service, sum(packets) from flowStatistics where service == "80" or service == "443" group by service
+
+--LAN vs. WAN
+%sql
+select lanWan, count(*) from flowStatistics where lanWan == "lan" or lanWan == "wan" group by lanWan
+
+--Domains from DNS requests
+select domain, count(*) from dnsData where domain != "" and isResponse == false group by domain limit 10
+
+--Email traffic structure
+%sql
+select email, sum(bytes) from smtpFlowStatistics where email != "" group by email
+
+--Webservers producing the most traffic
+%sql
+select srcAddr, sum(bytes) from flowStatistics where srcPort == "80" or srcPort == "443" group by srcAddr limit 10
+
+--Endpoints receiving the most traffic
+%sql
+select dstAddr, sum(bytes) from flowStatistics group by dstAddr limit 10
+
+--SMTP/SMTPS clients producing the most traffic
+%sql
+select srcAddr, sum(bytes) from smtpFlowStatistics
+where (email == "smtp" or email == "smtps") and direction == "up" group by srcAddr limit 10
+
+--SMTP/SMTPS servers producing the most traffic
+%sql
+select srcAddr, sum(bytes) from smtpFlowStatistics
+where (email == "smtp" or email == "smtps") and direction == "down" group by srcAddr limit 10
