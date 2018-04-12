@@ -209,7 +209,7 @@ public class JsonPacket extends Packet {
         JsonHelper.addValue(number, this, DST_PORT, tcp, JSON_TCP_DST_PORT, JsonHelper.ValueTypes.INT);
 
         JsonHelper.addValue(number, this, TCP_HEADER_LENGTH, tcp, JSON_TCP_HEADER_LEN, JsonHelper.ValueTypes.INT);
-        JsonHelper.addValue(number, this, TCP_SEQ, tcp, JSON_TCP_SEQ, JsonHelper.ValueTypes.INT);
+        JsonHelper.addValue(number, this, TCP_SEQ, tcp, JSON_TCP_SEQ, JsonHelper.ValueTypes.LONG);
         JsonHelper.addValue(number, this, TCP_ACK, tcp, JSON_TCP_ACK, JsonHelper.ValueTypes.INT);
 
         JsonHelper.addValue(number, this, PAYLOAD_LEN, tcp, JSON_TCP_PAYLOAD_LEN, JsonHelper.ValueTypes.INT);

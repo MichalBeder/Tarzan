@@ -80,11 +80,9 @@ public class PcapReader implements Iterable<RawFrame> {
 
         pcapHeader = new byte[HEADER_SIZE];
         if (!readBytes(pcapHeader)) {
-            //
             // This special check for EOF is because we don't want
             // PcapReader to barf on an empty file.  This is the only
             // place we check caughtEOF.
-            //
             if (caughtEOF) {
                 LOG.warn("Skipping empty file");
                 return;
@@ -93,8 +91,9 @@ public class PcapReader implements Iterable<RawFrame> {
         }
 
         if (!validateMagicNumber(pcapHeader)) {
-            LOG.error("Not a PCAP file (Couldn't find magic number)");
-            throw new IOException("Not a PCAP file (Couldn't find magic number)");
+            String msg = "Not supported type of PCAP file (Couldn't find magic number).";
+            LOG.error(msg);
+            throw new IOException(msg);
         }
 
         snapLen = PcapReaderUtil.convertInt(pcapHeader, PCAP_HEADER_SNAPLEN_OFFSET, reverseHeaderByteOrder);
@@ -127,14 +126,11 @@ public class PcapReader implements Iterable<RawFrame> {
 
 
         int frameLength = (int)PcapReaderUtil.convertInt(pcapRawFrameHeader, CAP_LEN_OFFSET, reverseHeaderByteOrder);
-        rawFrameData = new byte[(int)frameLength];
+        rawFrameData = new byte[frameLength];
 
-        if (readBytes(rawFrameData))
-        {
+        if (readBytes(rawFrameData)) {
             return RawFrameHelper.New(linkType.ordinal(), frameNumber++, frameLength, ticks,  rawFrameData);
-        }
-        else
-        {
+        } else {
             return null;
         }
     }

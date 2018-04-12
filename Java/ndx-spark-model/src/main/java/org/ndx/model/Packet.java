@@ -129,13 +129,8 @@ public abstract class Packet extends HashMap<String, Object> {
     public static final String SSL_VERSION = "ssl_version";
     public static final String SSL_RECORD_LENGTH = "ssl_record_length";
 
-    public static String getLogPrefix(Integer number) {
-        if (number == null) number = 0;
-        return "(Packet " + number + ") ";
-    }
-
     public static FlowModel.FlowKey flowKeyParse(String flowstring) {
-        String[] parts = flowstring.split("\\[|@|:|->|\\]");
+        String[] parts = flowstring.split("\\[|@|#|->|\\]");
         FlowModel.FlowKey.Builder fb = FlowModel.FlowKey.newBuilder();
         fb.setProtocol(ByteString.copyFromUtf8(parts[1]));
         fb.setSourceAddress(ByteString.copyFromUtf8(parts[2]));
@@ -191,11 +186,11 @@ public abstract class Packet extends HashMap<String, Object> {
                 this.get(PROTOCOL) +
                 "@" +
                 loAddress +
-                ":" +
+                "#" +
                 loPort +
                 "<->" +
                 hiAddress +
-                ":" +
+                "#" +
                 hiPort +
                 "]";
     }
@@ -217,11 +212,11 @@ public abstract class Packet extends HashMap<String, Object> {
                 this.get(PROTOCOL) +
                 "@" +
                 this.get(SRC) +
-                ":" +
+                "#" +
                 this.get(SRC_PORT) +
                 "->" +
                 this.get(DST) +
-                ":" +
+                "#" +
                 this.get(DST_PORT) +
                 "]";
     }
@@ -238,6 +233,11 @@ public abstract class Packet extends HashMap<String, Object> {
         if (sb.length() > 0)
             return sb.substring(0, sb.length() - 1);
         return null;
+    }
+
+    public static String getLogPrefix(Integer number) {
+        if (number == null) number = 0;
+        return "(Packet " + number + ") ";
     }
 
     public static String convertProtocolIdentifier(int identifier) {
