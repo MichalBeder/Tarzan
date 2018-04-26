@@ -1,36 +1,18 @@
 package org.ndx.pcap;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.Map;
 import java.math.BigInteger;
 
 public class PcapReaderUtil {
-	private static Map<Integer, String> protocols;
-
-	static {
-		protocols = new HashMap<Integer, String>();
-		protocols.put(1, PcapReader.PROTOCOL_ICMP);
-		protocols.put(6, PcapReader.PROTOCOL_TCP);
-		protocols.put(17, PcapReader.PROTOCOL_UDP);
-		// Using IPv4 fragment protocol number across protocols
-		// (see http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-		protocols.put(44, PcapReader.PROTOCOL_FRAGMENT);
-	}
 
 	public static long convertInt(byte[] data) {
 		return convertInt(data, false);
 	}
 	
 	public static long convertInt(byte[] data, boolean reversed) {
-		if (!reversed)
-		{
+		if (!reversed) {
 			return ((data[3] & 0xFF) << 24) | ((data[2] & 0xFF) << 16)
 					| ((data[1] & 0xFF) << 8) | (data[0] & 0xFF);
-		}
-		else
-		{
+		} else {
 			return ((data[0] & 0xFF) << 24) | ((data[1] & 0xFF) << 16)
 					| ((data[2] & 0xFF) << 8) | (data[3] & 0xFF);
 		}
@@ -66,7 +48,7 @@ public class PcapReaderUtil {
 	}
 
 	//A java workaround for header fields like seq/ack which are ulongs --M
-	public static long convertUnsignedInt(byte[] data,int offset) {
+	public static long convertUnsignedInt(byte[] data, int offset) {
 		byte[] target = new byte[4];
 		System.arraycopy(data, offset, target, 0, target.length);
 
@@ -74,18 +56,4 @@ public class PcapReaderUtil {
 		return placeholder.longValue();
 	}
 
-	public static String convertProtocolIdentifier(int identifier) {
-		return protocols.get(identifier);
-	}
-
-	public static String convertAddress(byte[] data, int offset, int size) {
-		byte[] addr = new byte[size];
-		System.arraycopy(data, offset, addr, 0, addr.length);
-		try {
-			return InetAddress.getByAddress(addr).getHostAddress();
-		} catch (UnknownHostException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
 }

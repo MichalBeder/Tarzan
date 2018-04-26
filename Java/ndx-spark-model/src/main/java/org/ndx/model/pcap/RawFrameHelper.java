@@ -9,7 +9,7 @@ public class RawFrameHelper  {
         rawFrameBuilder.setLinkTypeValue(linkType);
         rawFrameBuilder.setTimeStamp(ticks);
         rawFrameBuilder.setFrameLength(frameLength);
-        rawFrameBuilder.setFrameNumber(frameNumber++);
+        rawFrameBuilder.setFrameNumber(frameNumber);
         rawFrameBuilder.setData(ByteString.copyFrom(rawFrameData));
         return rawFrameBuilder.build();
     }

@@ -407,7 +407,16 @@ public class PcapPacket extends Packet {
     private int getUdpLength(byte[] packetData, int ipStart, int ipHeaderLen) {
         return BitConverter.convertShort(packetData, ipStart + ipHeaderLen + 4);
     }
-    
+
+    /**
+     * Reads the raw packet payload and returns it as byte[].
+     * If the payload could not be read an empty byte[] is returned.
+     * @param packetData
+     * @param payloadDataStart
+     * * @param payloadLength
+     * * @param snapLen
+     * @return payload as byte[]
+     */
     private byte[] readPayload(byte[] packetData, int payloadDataStart, int payloadLength, int snapLen) {
         Integer frameNumber = (Integer) get(NUMBER);
         if (payloadLength < 0) {
@@ -422,7 +431,8 @@ public class PcapPacket extends Packet {
             return new byte[0];
         }
         if (payloadDataStart + payloadLength > packetData.length) {
-            if (payloadDataStart + payloadLength <= snapLen) // Only corrupted if it was not because of a reduced snap length
+            // Only corrupted if it was not because of a reduced snap length
+            if (payloadDataStart + payloadLength <= snapLen)
                 LOG.warn(getLogPrefix(frameNumber) +
                         "Payload length field value (" + payloadLength + ") is larger than available packet data ("
                         + (packetData.length - payloadDataStart)
