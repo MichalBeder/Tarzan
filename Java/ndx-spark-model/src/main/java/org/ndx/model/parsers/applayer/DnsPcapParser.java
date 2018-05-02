@@ -25,20 +25,20 @@ public class DnsPcapParser extends AppLayerParser {
             put(Packet.DNS_QUERY_CNT, dnsHeader.getCount(PCAP_DNS_COUNT_QUERIES));
             put(Packet.DNS_ANSWER_CNT, dnsHeader.getCount(PCAP_DNS_COUNT_ASWERS));
             put(Packet.DNS_IS_RESPONSE, dnsHeader.getFlag(PCAP_DNS_QR_FLAG));
-            put(Packet.DNS_QUERIES,parsePcapSection(dnsMsg.getSectionArray(PCAP_DNS_QUERY_SECTION)));
-            put(Packet.DNS_ANSWERS,parsePcapSection(dnsMsg.getSectionArray(PCAP_DNS_ANSWER_SECTION)));
+            put(Packet.DNS_QUERIES, parseSection(dnsMsg.getSectionArray(PCAP_DNS_QUERY_SECTION)));
+            put(Packet.DNS_ANSWERS, parseSection(dnsMsg.getSectionArray(PCAP_DNS_ANSWER_SECTION)));
         } catch (IOException e) {
             throw new IllegalArgumentException(e);
         }
     }
 
-    private ArrayList<String> parsePcapSection(Record[] section) {
-        String [] queries = Arrays.stream(section)
+    private ArrayList<String> parseSection(Record[] section) {
+        String [] records = Arrays.stream(section)
                 .map(record -> DnsHelper.formatOutput(record.getName().toString(true),
                         Integer.toString(record.getType()), Integer.toString(record.getDClass()),
                         record.rdataToString()))
                 .toArray(String[]::new);
-        return new ArrayList<>(Arrays.asList(queries));
+        return new ArrayList<>(Arrays.asList(records));
     }
 
 }

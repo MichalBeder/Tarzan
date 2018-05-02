@@ -62,7 +62,7 @@ public class JavaApi {
         });
     }
 
-    public static JavaRDD<Packet> getRawPackets(JavaSparkContext sc, String path) {
+    public static JavaRDD<Packet> getPackets(JavaSparkContext sc, String path) {
         JavaRDD<Packet> packets;
         try {
             packets = readInputFiles(sc, path);
@@ -74,7 +74,7 @@ public class JavaApi {
     }
 
     public static JavaPairRDD<String, Iterable<Packet>> getFlows(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = getRawPackets(sc, path);
+        JavaRDD<Packet> packets = getPackets(sc, path);
         return packets != null ? packets.mapToPair(x -> new Tuple2<>(x.getFlowString(), x)).groupByKey() : null;
     }
 }

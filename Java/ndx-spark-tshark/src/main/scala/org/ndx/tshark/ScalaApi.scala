@@ -111,18 +111,18 @@ object ScalaApi {
                 val flow: String = x.getFlowString
                 val id: Integer = x.get(Packet.DNS_ID).asInstanceOf[Integer]
                 val isResponse: Boolean = x.get(Packet.DNS_IS_RESPONSE).asInstanceOf[Boolean]
-                val rdata: Seq[String] = if (isResponse)
+                val records: Seq[String] = if (isResponse)
                     x.get(Packet.DNS_ANSWERS).asInstanceOf[util.ArrayList[String]].toSeq
                     else x.get(Packet.DNS_QUERIES).asInstanceOf[util.ArrayList[String]].toSeq
-                if (rdata.isEmpty) { rdata.add("") }
-                rdata.map(record => DnsDataRaw(flow, id, isResponse, record))
+                if (records.isEmpty) { records.add("") }
+                records.map(record => DnsDataRaw(flow, id, isResponse, record))
             })
     }
 
     def registerDnsData(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
         import spark.implicits._
         val dnsData = getDnsData(packets).map(x => {
-            val splits = x.rdata.split(",")
+            val splits = x.record.split(",")
             DnsData(x.flow, x.id, x.isResponse, splits.lift(0).getOrElse(""), splits.lift(1).getOrElse(""),
                 splits.lift(2).getOrElse(""), splits.lift(3).getOrElse(""))
         })
@@ -144,6 +144,9 @@ object ScalaApi {
         kws.toDF().createOrReplaceTempView(viewName)
     }
 
+    //TODO oneskorenie dns
+
+    //TODO zoradit pakety podla casu
     def getTcpFlows(packets: RDD[Packet]): RDD[(String, Iterable[TcpPacket])] = {
         val tcpPackets: RDD[TcpPacket] =
             packets.filter(x => Option(x.get(Packet.PROTOCOL)).getOrElse("").equals(Packet.PROTOCOL_TCP)

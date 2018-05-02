@@ -332,7 +332,6 @@ public class PcapPacket extends Packet {
                 if (cksum >= 0)
                     this.put(UDPSUM, cksum);
             }
-            // TODO UDP Checksum for IPv6 packets
             int udpLen = getUdpLength(packetData, ipStart, ipHeaderLen);
             this.put(UDP_LENGTH, udpLen);
             this.put(PAYLOAD_LEN, udpLen);

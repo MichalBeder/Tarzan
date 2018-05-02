@@ -4,7 +4,7 @@ case class Url(url:String)
 
 case class Keyword(keyword:String, count:Integer)
 
-case class DnsDataRaw(flow:String, id:Integer, isResponse: Boolean, rdata:String)
+case class DnsDataRaw(flow:String, id:Integer, isResponse: Boolean, record:String)
 
 case class DnsData(flow:String, id:Integer, isResponse: Boolean, domain:String,
                    recordType:String, dnsClass:String, rdata:String)
@@ -16,4 +16,3 @@ case class FlowStatistics(first:java.sql.Timestamp, last:java.sql.Timestamp, pro
 case class TcpPacket(flow:String, timeStamp:java.sql.Timestamp, flagNS: Boolean, flagCWR: Boolean, flagECE: Boolean,
                      flagURG: Boolean, flagACK: Boolean, flagPSH: Boolean, flagRST: Boolean, flagSYN: Boolean,
                      flagFIN: Boolean, seqNo: Long, length: Integer, payload:String)
-
