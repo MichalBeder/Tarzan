@@ -86,10 +86,14 @@ public class PcapReader implements Iterable<RawFrame> {
             return null;
 
         long ts = PcapReaderUtil.convertInt(pcapRawFrameHeader, TIMESTAMP_OFFSET, reverseHeaderByteOrder);
-        long tsMicroseconds = PcapReaderUtil.convertInt(pcapRawFrameHeader, TIMESTAMP_MICROS_OFFSET, reverseHeaderByteOrder);
+        long tsMicroseconds = PcapReaderUtil.convertInt(pcapRawFrameHeader,
+                TIMESTAMP_MICROS_OFFSET, reverseHeaderByteOrder);
         long ticks = UnixBaseTicks + (ts * TicksPerSecond) + (tsMicroseconds * TickPerMicroseconds);
 
-        int frameLength = (int)PcapReaderUtil.convertInt(pcapRawFrameHeader, CAP_LEN_OFFSET, reverseHeaderByteOrder);
+        int frameLength = (int) PcapReaderUtil.convertInt(pcapRawFrameHeader, CAP_LEN_OFFSET, reverseHeaderByteOrder);
+        if (frameLength <= 0) {
+            return null;
+        }
         rawFrameData = new byte[frameLength];
 
         if (readBytes(rawFrameData)) {

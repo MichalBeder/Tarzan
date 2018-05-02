@@ -246,13 +246,14 @@ public class JsonPacket extends Packet {
         JsonHelper.addValue(number, this, IP_FLAGS_MF, ipV4, JSON_IPV4_FLAG_MF, JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(number, this, FRAGMENT_OFFSET, ipV4, JSON_IPV4_FRAGMENT_OFFSET, JsonHelper.ValueTypes.INT);
 
-        int flagMf = (int) get(IP_FLAGS_MF);
-        int fragOffset = (int) get(FRAGMENT_OFFSET);
-        if (flagMf > 0 || fragOffset > 0) {
-            put(FRAGMENT, true);
-            put(LAST_FRAGMENT, (flagMf == 0));
-        } else {
-            put(FRAGMENT, false);
+        Integer flagMf = (Integer) get(IP_FLAGS_MF);
+        Integer fragOffset = (Integer) get(FRAGMENT_OFFSET);
+        put(FRAGMENT, false);
+        if (flagMf != null && fragOffset != null) {
+            if (flagMf > 0 || fragOffset > 0) {
+                put(FRAGMENT, true);
+                put(LAST_FRAGMENT, (flagMf == 0));
+            }
         }
 
         JsonHelper.addValue(number, this, ID, ipV4, JSON_IPV4_ID, JsonHelper.ValueTypes.LONG);
