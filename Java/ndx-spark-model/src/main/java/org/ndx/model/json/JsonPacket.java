@@ -124,8 +124,7 @@ public class JsonPacket extends Packet {
         if (appProtocol == AppLayerProtocols.UNKNOWN) return;
 
         AppLayerParser parser = null;
-        Integer number = (Integer)get(NUMBER);
-        if (number == null) number = 0;
+        Integer number = (Integer) get(NUMBER);
         String protocol = appProtocol.name().toLowerCase();
 
         switch (appProtocol) {
@@ -140,28 +139,7 @@ public class JsonPacket extends Packet {
                 parser = httpParser;
                 break;
             case SSL:
-                ProtocolsOverSsl sslProtocol =
-                        SslHelper.detectSslProtocol((Integer) get(SRC_PORT), (Integer) get(DST_PORT));
-                if (sslProtocol != ProtocolsOverSsl.UNKNOWN) {
-                    put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.SSL);
-                    put(Packet.PROTOCOL_OVER_SSL, sslProtocol);
-                }
-
-                ArrayList<JsonAdapter> payloads = new ArrayList<>();
-                ArrayList<HashMap<String, Object>> records = new ArrayList<>();
-                if (layers.isString(protocol)) {
-                    return;
-                }
-                else if (layers.isArray(protocol)) {
-                    payloads = layers.getLayersArray(protocol);
-                } else {
-                    payloads.add(layers.getLayer(protocol));
-                }
-                for (JsonAdapter item: payloads) {
-                    SslJsonParser sslParser = new SslJsonParser(number);
-                    records.addAll(sslParser.parse(item));
-                }
-                put(SSL_RECORDS, records);
+                parseSsl(layers);
                 break;
             case SMTP:
             case POP3:
@@ -174,6 +152,32 @@ public class JsonPacket extends Packet {
         if (parser != null) {
             this.putAll(parser);
         }
+    }
+
+    private void parseSsl(JsonAdapter layers) {
+        String protocol = AppLayerProtocols.SSL.name().toLowerCase();
+        ProtocolsOverSsl sslProtocol =
+                SslHelper.detectSslProtocol((Integer) get(SRC_PORT), (Integer) get(DST_PORT));
+        if (sslProtocol != ProtocolsOverSsl.UNKNOWN) {
+            put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.SSL);
+            put(Packet.PROTOCOL_OVER_SSL, sslProtocol);
+        }
+
+        ArrayList<JsonAdapter> payloads = new ArrayList<>();
+        ArrayList<HashMap<String, Object>> records = new ArrayList<>();
+        if (layers.isString(protocol)) {
+            return;
+        }
+        else if (layers.isArray(protocol)) {
+            payloads = layers.getLayersArray(protocol);
+        } else {
+            payloads.add(layers.getLayer(protocol));
+        }
+        for (JsonAdapter item: payloads) {
+            SslJsonParser sslParser = new SslJsonParser((Integer) get(NUMBER));
+            records.addAll(sslParser.parse(item));
+        }
+        put(SSL_RECORDS, records);
     }
 
     private AppLayerProtocols detectAppProtocol(JsonAdapter layers) {

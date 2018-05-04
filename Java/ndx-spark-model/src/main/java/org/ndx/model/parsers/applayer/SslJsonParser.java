@@ -4,6 +4,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ndx.model.Packet;
 import org.ndx.model.json.JsonAdapter;
+import org.ndx.model.json.JsonHelper;
 
 import java.util.*;
 
@@ -39,8 +40,8 @@ public class SslJsonParser extends AppLayerParser {
     private static final String SSL_JSON_VERSION = "ssl_record_ssl_record_version";
     private static final String SSL_JSON_RECORD_LENGTH = "ssl_record_ssl_record_length";
 
-    public SslJsonParser(int packetNo) {
-        packetNumber = packetNo;
+    public SslJsonParser(Integer packetNo) {
+        packetNumber = packetNo != null ? packetNo : 0;
     }
 
     public SslJsonParser() {}
@@ -63,15 +64,8 @@ public class SslJsonParser extends AppLayerParser {
                 Iterator<String> itLen = payload.getStringArray(SSL_JSON_RECORD_LENGTH).iterator();
 
                 while (itVer.hasNext() && itType.hasNext() && itLen.hasNext()) {
-                    int type, len;
-                    String msg = SSL_JSON_CONTENT_TYPE;
-                    try {
-                        type = Integer.decode(itType.next());
-                        msg = SSL_JSON_RECORD_LENGTH;
-                        len = Integer.decode(itLen.next());
-                    } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Missing value - " + msg, e);
-                    }
+                    int type = JsonHelper.tryGetIntValue(itType.next(), SSL_JSON_CONTENT_TYPE);
+                    int len= JsonHelper.tryGetIntValue(itLen.next(), SSL_JSON_RECORD_LENGTH);
                     HashMap<String, Object> ssl = createRecord(itVer.next(), type, len);
                     records.add(ssl);
                 }

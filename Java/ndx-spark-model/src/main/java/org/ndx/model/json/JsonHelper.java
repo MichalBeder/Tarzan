@@ -46,6 +46,14 @@ public final class JsonHelper {
         }
     }
 
+    public static int tryGetIntValue(String value, String key) {
+        try {
+            return Integer.decode(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Missing value - " + key, e);
+        }
+    }
+
     public static String getStringValue(JsonAdapter json, String jsonKey) {
         try {
             return json.getStringValue(jsonKey);
