@@ -8,8 +8,8 @@ import org.ndx.model.json.JsonHelper;
 
 import java.util.*;
 
-public class DnsJsonParser extends AppLayerParser {
 
+public class DnsJsonParser extends AppLayerParser {
     private static final Log LOG = LogFactory.getLog(DnsJsonParser.class);
 
     private static final String JSON_DNS_COUNT_QUERIES = "dns_dns_count_queries";
@@ -46,6 +46,11 @@ public class DnsJsonParser extends AppLayerParser {
         put(Packet.DNS_ADD_CNT, 0);
     }
 
+    /**
+     * Attempts to parse DNS protocol.
+     *
+     * @param payload DNS payload in json format.
+     */
     public void parse(JsonAdapter payload) {
         JsonHelper.addValue(packetNumber, this, Packet.DNS_ID, payload, JSON_DNS_ID, JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(packetNumber, this, Packet.DNS_IS_RESPONSE, payload,
@@ -65,8 +70,10 @@ public class DnsJsonParser extends AppLayerParser {
     }
 
     /**
-     * One packet may contain one or more DNS queries. This is allowed by protocol, but not supported by nameservers.
-     * @param payload DNS payload.
+     * Attempts to parse DNS queries from json input. One packet may contain one or more DNS queries.
+     * This is allowed by protocol, but not supported by nameservers.
+     *
+     * @param payload DNS payload in json format.
      */
     @SuppressWarnings("unchecked")
     private void parseJsonQueries(JsonAdapter payload) {
@@ -103,7 +110,14 @@ public class DnsJsonParser extends AppLayerParser {
         put(Packet.DNS_QUERIES, queries);
     }
 
+    /**
+     * Attempts to parse DNS answers from json input. One packet may contain zero or more answers.
+     *
+     * @param payload DNS payload in json format.
+     */
     private void parseJsonAnswers(JsonAdapter payload) {
+        // DNS queries and answers are both associated with the same key in json.
+        // So queries needs to be skipped now.
         rdataIndex = (int) get(Packet.DNS_QUERY_CNT);
         int allCnt = getAllAnswerSecCnt();
         switch (allCnt) {
@@ -114,11 +128,16 @@ public class DnsJsonParser extends AppLayerParser {
                 break;
             default:
                 getJsonMultipleAnswers(payload);
-                rdataIndex = 0;
                 break;
         }
+        rdataIndex = 0;
     }
 
+    /**
+     * Attempts to parse single DNS answer.
+     *
+     * @param payload DNS payload in json format.
+     */
     @SuppressWarnings("unchecked")
     private void getJsonAnswer(JsonAdapter payload) {
         int aCnt = (int) get(Packet.DNS_ANSWER_CNT);
@@ -136,6 +155,12 @@ public class DnsJsonParser extends AppLayerParser {
         }
     }
 
+    /**
+     * Attempts to parse multiple DNS answers. This function parses only answer section of DNS packet,
+     * additional and authority sections will be omitted.
+     *
+     * @param payload DNS payload in json format.
+     */
     @SuppressWarnings("unchecked")
     private void getJsonMultipleAnswers(JsonAdapter payload) {
         List<String> answers = (List<String>) get(Packet.DNS_ANSWERS);
@@ -144,7 +169,8 @@ public class DnsJsonParser extends AppLayerParser {
             Iterator<String> itNames = payload.getStringArray(JSON_DNS_RESP_NAME).iterator();
             Iterator<String> itTypes = payload.getStringArray(JSON_DNS_RESP_TYPE).iterator();
             Iterator<String> itClasses = payload.getStringArray(JSON_DNS_RESP_CLASS).iterator();
-            int i = 0;
+            int i = 0; // count of answers in the answer section (answer section,
+            // additional section and authority section are associated withe the same key in json)
 
             while (itNames.hasNext() && itTypes.hasNext() && itClasses.hasNext() && i < aCnt) {
                 String type = itTypes.next();
@@ -157,6 +183,14 @@ public class DnsJsonParser extends AppLayerParser {
         }
     }
 
+    /**
+     * Attempts to parse rdata string from DNS answer. Example input:
+     * "google.com: type MX, class IN, preference 40, mx smtp3.google.com".
+     * The goal is to get the last part of the input string.
+     *
+     * @param payload DNS payload in json format.
+     * @return Rdata string.
+     */
     private String getJsonRdata(JsonAdapter payload) {
         String output = "";
         ArrayList<String> rdataArr = payload.getStringArray(JSON_DNS_TEXT);
@@ -169,6 +203,9 @@ public class DnsJsonParser extends AppLayerParser {
         return output;
     }
 
+    /**
+     * @return Sum of all records in the answer section (answers + additional + authority).
+     */
     private int getAllAnswerSecCnt() {
         int ans = (int) get(Packet.DNS_ANSWER_CNT);
         int auth = (int) get(Packet.DNS_AUTH_CNT);

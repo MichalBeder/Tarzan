@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
+
 public class DnsPcapParser extends AppLayerParser {
 
     private static final int PCAP_DNS_COUNT_QUERIES = 0;
@@ -17,6 +18,12 @@ public class DnsPcapParser extends AppLayerParser {
     private static final int PCAP_DNS_ANSWER_SECTION = 1;
     private static final int PCAP_DNS_QR_FLAG = 0;
 
+    /**
+     * Attempts to parse DNS packet from binary (pcap) source.
+     *
+     * @param payload Binary representation of the DNS payload.
+     * @throws IllegalArgumentException Has been thrown when DNS packet is malformed.
+     */
     public void parse(byte[] payload) throws IllegalArgumentException {
         try {
             Message dnsMsg = new Message(payload);
@@ -32,8 +39,14 @@ public class DnsPcapParser extends AppLayerParser {
         }
     }
 
+    /**
+     * Attempts to parse query or answer section of DNS packet.
+     *
+     * @param section Query or answer section.
+     * @return CSV formatted output. This format is the same as in json.
+     */
     private ArrayList<String> parseSection(Record[] section) {
-        String [] records = Arrays.stream(section)
+        String[] records = Arrays.stream(section)
                 .map(record -> DnsHelper.formatOutput(record.getName().toString(true),
                         Integer.toString(record.getType()), Integer.toString(record.getDClass()),
                         record.rdataToString()))

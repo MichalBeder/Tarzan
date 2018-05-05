@@ -19,8 +19,8 @@ import scala.Tuple2;
 
 import java.io.IOException;
 
-public class JavaApi {
-    private static final Log LOG = LogFactory.getLog(JavaApi.class);
+public class TSharkJava {
+    private static final Log LOG = LogFactory.getLog(TSharkJava.class);
     private static final String PCAP = "pcap";
     private static final String CAP = "cap";
     private static final String JSON = "json";
@@ -77,4 +77,5 @@ public class JavaApi {
         JavaRDD<Packet> packets = getPackets(sc, path);
         return packets != null ? packets.mapToPair(x -> new Tuple2<>(x.getFlowString(), x)).groupByKey() : null;
     }
+
 }

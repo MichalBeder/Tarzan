@@ -6,10 +6,19 @@ import java.math.BigInteger;
 
 public class BitConverter {
 
+    /**
+     * @param data Binary representation of long value.
+     * @return Converted value.
+     */
     public static long convertInt(byte[] data) {
         return convertInt(data, false);
     }
 
+    /**
+     * @param data     Binary representation of long value.
+     * @param reversed Byte order.
+     * @return Converted value.
+     */
     public static long convertInt(byte[] data, boolean reversed) {
         if (!reversed) {
             return ((data[3] & 0xFF) << 24) | ((data[2] & 0xFF) << 16)
@@ -20,6 +29,12 @@ public class BitConverter {
         }
     }
 
+    /**
+     * @param data     Binary data contained integer value which starts at offset position.
+     * @param offset   Offset of desired long value.
+     * @param reversed Byte order.
+     * @return Converted value.
+     */
     public static long convertInt(byte[] data, int offset, boolean reversed) {
         byte[] target = new byte[4];
         System.arraycopy(data, offset, target, 0, target.length);
@@ -38,8 +53,8 @@ public class BitConverter {
 
     public static byte[] convertShort(int data) {
         byte[] result = new byte[2];
-        result[0] = (byte)(data >> 8);
-        result[1] = (byte)(data);
+        result[0] = (byte) (data >> 8);
+        result[1] = (byte) (data);
         return result;
     }
 
@@ -49,15 +64,23 @@ public class BitConverter {
         return convertShort(target);
     }
 
-    //A java workaround for header fields like seq/ack which are ulongs --M
-    public static long convertUnsignedInt(byte[] data,int offset) {
+    /**
+     * A java workaround for header fields like seq/ack which are ulongs --M.
+     */
+    public static long convertUnsignedInt(byte[] data, int offset) {
         byte[] target = new byte[4];
         System.arraycopy(data, offset, target, 0, target.length);
 
-        BigInteger placeholder = new BigInteger(1,target);
+        BigInteger placeholder = new BigInteger(1, target);
         return placeholder.longValue();
     }
 
+    /**
+     * @param data   Binary form of an IP address.
+     * @param offset Offset of IP address. Position where the address starts.
+     * @param size   Size of address in bytes.
+     * @return IP address in the string form.
+     */
     public static String convertAddress(byte[] data, int offset, int size) {
         byte[] addr = new byte[size];
         System.arraycopy(data, offset, addr, 0, addr.length);
@@ -68,4 +91,5 @@ public class BitConverter {
             return null;
         }
     }
+
 }

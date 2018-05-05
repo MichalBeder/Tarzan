@@ -6,6 +6,7 @@ import org.ndx.model.Packet;
 
 import java.util.Map;
 
+
 public final class JsonHelper {
     private static final Log LOG = LogFactory.getLog(Packet.class);
 
@@ -21,6 +22,16 @@ public final class JsonHelper {
         addValue(packetNumber, map, mapKey, json, jsonKey, type, true);
     }
 
+    /**
+     * Gets value from json, then puts this value with mapKey to the map.
+     *
+     * @param packetNumber Packet identifier for logging purposes.
+     * @param map          map.add(mapKey, json.get(jsonKey))
+     * @param mapKey       Key to be added to map.
+     * @param json         Json source.
+     * @param jsonKey      Key associated with the desired value from json.
+     * @param type         Type of the desired value from json.
+     */
     public static void addValue(Integer packetNumber, Map<String, Object> map, String mapKey, JsonAdapter json,
                                 String jsonKey, ValueTypes type, boolean warn) {
         try {
@@ -40,27 +51,10 @@ public final class JsonHelper {
                 default:
             }
         } catch (IllegalArgumentException e) {
-            if(warn) {
+            if (warn) {
                 LOG.warn(Packet.getLogPrefix(packetNumber) + e.getMessage());
             }
         }
-    }
-
-    public static int tryGetIntValue(String value, String key) {
-        try {
-            return Integer.decode(value);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Missing value - " + key, e);
-        }
-    }
-
-    public static String getStringValue(JsonAdapter json, String jsonKey) {
-        try {
-            return json.getStringValue(jsonKey);
-        } catch (Exception e) {
-            LOG.warn(e.getMessage());
-        }
-        return "";
     }
 
 }

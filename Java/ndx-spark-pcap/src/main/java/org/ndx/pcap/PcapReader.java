@@ -32,7 +32,7 @@ public class PcapReader implements Iterable<RawFrame> {
     private long snapLen;
     private boolean caughtEOF = false;
     private int frameNumber = 1;
-    //To read reversed-endian PCAPs; the header is the only part that switches
+    // To read reversed-endian PCAPs; the header is the only part that switches
     private boolean reverseHeaderByteOrder = false;
 
     public byte[] pcapHeader;
@@ -70,7 +70,9 @@ public class PcapReader implements Iterable<RawFrame> {
         }
     }
 
-    // Only use this constructor for testcases
+    /**
+     * Only use this constructor for testcases
+     */
     protected PcapReader(LinkType lt) {
         this.is = null;
         linkType = lt;
@@ -119,7 +121,7 @@ public class PcapReader implements Iterable<RawFrame> {
     }
 
     protected LinkType getLinkType(long linkTypeVal) {
-        switch ((int)linkTypeVal) {
+        switch ((int) linkTypeVal) {
             case 0:
                 return LinkType.NULL;
             case 1:
@@ -195,8 +197,8 @@ public class PcapReader implements Iterable<RawFrame> {
         @Override
         public int compareTo(SequencePayload o) {
             return ComparisonChain.start().compare(seq, o.seq)
-                                          .compare(payload.length, o.payload.length)
-                                          .result();
+                    .compare(payload.length, o.payload.length)
+                    .result();
         }
 
         public boolean linked(SequencePayload o) {
@@ -210,8 +212,8 @@ public class PcapReader implements Iterable<RawFrame> {
         @Override
         public String toString() {
             return Objects.toStringHelper(this.getClass()).add("seq", seq)
-                                                          .add("len", payload.length)
-                                                          .toString();
+                    .add("len", payload.length)
+                    .toString();
         }
     }
 
@@ -227,8 +229,8 @@ public class PcapReader implements Iterable<RawFrame> {
         @Override
         public int compareTo(DatagramPayload o) {
             return ComparisonChain.start().compare(offset, o.offset)
-                                          .compare(payload.length, o.payload.length)
-                                          .result();
+                    .compare(payload.length, o.payload.length)
+                    .result();
         }
 
         public boolean linked(DatagramPayload o) {
@@ -242,8 +244,9 @@ public class PcapReader implements Iterable<RawFrame> {
         @Override
         public String toString() {
             return Objects.toStringHelper(this.getClass()).add("offset", offset)
-                                                          .add("len", payload.length)
-                                                          .toString();
+                    .add("len", payload.length)
+                    .toString();
         }
     }
+
 }

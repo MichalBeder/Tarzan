@@ -8,6 +8,7 @@ import org.apache.commons.lang.NotImplementedException;
 import org.ndx.model.Packet;
 import org.ndx.model.parsers.applayer.*;
 
+
 public class JsonPacket extends Packet {
 
     private static final String JSON_LAYERS = "layers";
@@ -29,8 +30,6 @@ public class JsonPacket extends Packet {
     private static final String JSON_IPV6 = "ipv6";
     private static final String JSON_IPV6_SRC = "ipv6_ipv6_src";
     private static final String JSON_IPV6_DST = "ipv6_ipv6_dst";
-    private static final String JSON_IPV6_NEXT = "ipv6_ipv6_nxt";
-    private static final String JSON_IPV6_NEXT_SUFFIX = "_nxt";
     private static final String JSON_IPV6_HOP_LIMIT = "ipv6_ipv6_hlim";
     private static final String JSON_IPV6_FRAGMENT_HEADER = "ipv6_ipv6_fraghdr";
 
@@ -62,6 +61,7 @@ public class JsonPacket extends Packet {
 
     /**
      * Attempts to parse the input jsonFrame into Packet.
+     *
      * @param jsonFrame An input frame to be parsed.
      */
     @Override
@@ -87,12 +87,22 @@ public class JsonPacket extends Packet {
         }
     }
 
+    /**
+     * Attempts to parse the frame layer of Packet.
+     *
+     * @param frame Frame layer.
+     */
     private void parseFrameLayer(JsonAdapter frame) {
         JsonHelper.addValue(0, this, NUMBER, frame, JSON_FRAME_NUMBER, JsonHelper.ValueTypes.INT);
         JsonHelper.addValue((Integer) get(NUMBER), this, FRAME_LENGTH, frame, JSON_FRAME_LENGTH,
                 JsonHelper.ValueTypes.INT);
     }
 
+    /**
+     * Attempts to parse IPv4 or IPv6 layer of Packet.
+     *
+     * @param layers Main layer of json packet.
+     */
     private void parseIpLayer(JsonAdapter layers) {
         if (layers.containsKey(JSON_IPV4)) {
             parseIpV4(layers.getLayer(JSON_IPV4));
@@ -103,6 +113,11 @@ public class JsonPacket extends Packet {
         }
     }
 
+    /**
+     * Attempts to parse TCP or UDP layer of Packet.
+     *
+     * @param layers Main layer of json packet.
+     */
     private void parseTransportLayer(JsonAdapter layers) {
         if (layers.containsKey(PROTOCOL_TCP.toLowerCase())) {
             parseTcp(layers.getLayer(JSON_TCP));
@@ -118,6 +133,11 @@ public class JsonPacket extends Packet {
         }
     }
 
+    /**
+     * Recognizes supported application layer protocols from the main layer of json packet.
+     *
+     * @param layers Main layer of json packet.
+     */
     private void parseApplicationLayer(JsonAdapter layers) {
         AppLayerProtocols appProtocol = detectAppProtocol(layers);
         put(APP_LAYER_PROTOCOL, appProtocol);
@@ -143,7 +163,8 @@ public class JsonPacket extends Packet {
                 break;
             case SMTP:
             case POP3:
-            case IMAP: break;
+            case IMAP:
+                break;
             default:
                 LOG.info(getLogPrefix((Integer) get(NUMBER)) + "Not supported application layer protocol.");
                 break;
@@ -154,32 +175,56 @@ public class JsonPacket extends Packet {
         }
     }
 
+    /**
+     * Attempts to parse SSL/TLS protocols.
+     *
+     * @param layers Main layer of json packet.
+     */
     private void parseSsl(JsonAdapter layers) {
         String protocol = AppLayerProtocols.SSL.name().toLowerCase();
         ProtocolsOverSsl sslProtocol =
                 SslHelper.detectSslProtocol((Integer) get(SRC_PORT), (Integer) get(DST_PORT));
+
         if (sslProtocol != ProtocolsOverSsl.UNKNOWN) {
             put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.SSL);
             put(Packet.PROTOCOL_OVER_SSL, sslProtocol);
         }
 
         ArrayList<JsonAdapter> payloads = new ArrayList<>();
-        ArrayList<HashMap<String, Object>> records = new ArrayList<>();
+        HashMap<String, ArrayList> records = new HashMap<>();
         if (layers.isString(protocol)) {
             return;
-        }
-        else if (layers.isArray(protocol)) {
+        } else if (layers.isArray(protocol)) {
             payloads = layers.getLayersArray(protocol);
         } else {
             payloads.add(layers.getLayer(protocol));
         }
-        for (JsonAdapter item: payloads) {
+        for (JsonAdapter item : payloads) {
             SslJsonParser sslParser = new SslJsonParser((Integer) get(NUMBER));
-            records.addAll(sslParser.parse(item));
+            mergeSslRecords(records, sslParser.parse(item));
         }
-        put(SSL_RECORDS, records);
+        putAll(records);
     }
 
+    /**
+     * Merges two ssl records. ArrayLists associated with the same keys will be concatenated.
+     *
+     * @param record1 The result of merging.
+     * @param record2 Record to be merged.
+     */
+    private void mergeSslRecords(HashMap<String, ArrayList> record1, HashMap<String, ArrayList> record2) {
+        record2.forEach((k, v) -> record1.merge(k, v, (v1, v2) -> {
+            v1.addAll(v2);
+            return v1;
+        }));
+    }
+
+    /**
+     * Attempts to detect application layer protocol.
+     *
+     * @param layers Main layer of json packet.
+     * @return Detected application layer protocol.
+     */
     private AppLayerProtocols detectAppProtocol(JsonAdapter layers) {
         return Stream.of(AppLayerProtocols.values())
                 .filter(x -> x != AppLayerProtocols.UNKNOWN)
@@ -188,6 +233,11 @@ public class JsonPacket extends Packet {
                 .orElse(AppLayerProtocols.UNKNOWN);
     }
 
+    /**
+     * Attempts to parse UDP layer.
+     *
+     * @param udp UDP layer of json packet.
+     */
     private void parseUdp(JsonAdapter udp) {
         Integer number = (Integer) get(NUMBER);
         JsonHelper.addValue(number, this, SRC_PORT, udp, JSON_UDP_SRC_PORT, JsonHelper.ValueTypes.INT);
@@ -207,14 +257,20 @@ public class JsonPacket extends Packet {
         }
     }
 
+    /**
+     * Attempts to parse TCP layer.
+     *
+     * @param tcp TCP layer of json packet.
+     */
     private void parseTcp(JsonAdapter tcp) {
         Integer number = (Integer) get(NUMBER);
         JsonHelper.addValue(number, this, SRC_PORT, tcp, JSON_TCP_SRC_PORT, JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(number, this, DST_PORT, tcp, JSON_TCP_DST_PORT, JsonHelper.ValueTypes.INT);
 
-        JsonHelper.addValue(number, this, TCP_HEADER_LENGTH, tcp, JSON_TCP_HEADER_LEN, JsonHelper.ValueTypes.INT);
+        JsonHelper.addValue(number, this, TCP_HEADER_LENGTH, tcp, JSON_TCP_HEADER_LEN,
+                JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(number, this, TCP_SEQ, tcp, JSON_TCP_SEQ, JsonHelper.ValueTypes.LONG);
-        JsonHelper.addValue(number, this, TCP_ACK, tcp, JSON_TCP_ACK, JsonHelper.ValueTypes.INT);
+        JsonHelper.addValue(number, this, TCP_ACK, tcp, JSON_TCP_ACK, JsonHelper.ValueTypes.LONG);
 
         JsonHelper.addValue(number, this, PAYLOAD_LEN, tcp, JSON_TCP_PAYLOAD_LEN, JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(number, this, LEN, tcp, JSON_TCP_PAYLOAD_LEN, JsonHelper.ValueTypes.INT);
@@ -238,25 +294,32 @@ public class JsonPacket extends Packet {
         JsonHelper.addValue(number, this, TCP_FLAG_FIN, tcp, JSON_TCP_FLAG_FIN, JsonHelper.ValueTypes.BOOLEAN);
     }
 
+    /**
+     * Attepmts to parse IPv4 layer.
+     *
+     * @param ipV4 IPv4 layer of json packet.
+     */
     private void parseIpV4(JsonAdapter ipV4) {
         put(IP_VERSION, IPV4);
         Integer number = (Integer) get(NUMBER);
-        JsonHelper.addValue(number, this, IP_HEADER_LENGTH, ipV4, JSON_IPV4_HEADER_LEN, JsonHelper.ValueTypes.INT);
+        JsonHelper.addValue(number, this, IP_HEADER_LENGTH, ipV4, JSON_IPV4_HEADER_LEN,
+                JsonHelper.ValueTypes.INT);
         JsonHelper.addValue(number, this, SRC, ipV4, JSON_IPV4_SRC, JsonHelper.ValueTypes.STRING);
         JsonHelper.addValue(number, this, DST, ipV4, JSON_IPV4_DST, JsonHelper.ValueTypes.STRING);
         JsonHelper.addValue(number, this, TTL, ipV4, JSON_IPV4_TTL, JsonHelper.ValueTypes.INT);
 
-        JsonHelper.addValue(number, this, IP_FLAGS_DF, ipV4, JSON_IPV4_FLAG_DF, JsonHelper.ValueTypes.INT);
-        JsonHelper.addValue(number, this, IP_FLAGS_MF, ipV4, JSON_IPV4_FLAG_MF, JsonHelper.ValueTypes.INT);
-        JsonHelper.addValue(number, this, FRAGMENT_OFFSET, ipV4, JSON_IPV4_FRAGMENT_OFFSET, JsonHelper.ValueTypes.INT);
+        JsonHelper.addValue(number, this, IP_FLAGS_DF, ipV4, JSON_IPV4_FLAG_DF, JsonHelper.ValueTypes.BOOLEAN);
+        JsonHelper.addValue(number, this, IP_FLAGS_MF, ipV4, JSON_IPV4_FLAG_MF, JsonHelper.ValueTypes.BOOLEAN);
+        JsonHelper.addValue(number, this, FRAGMENT_OFFSET, ipV4, JSON_IPV4_FRAGMENT_OFFSET,
+                JsonHelper.ValueTypes.LONG);
 
-        Integer flagMf = (Integer) get(IP_FLAGS_MF);
-        Integer fragOffset = (Integer) get(FRAGMENT_OFFSET);
+        Boolean flagMf = (Boolean) get(IP_FLAGS_MF);
+        Long fragOffset = (Long) get(FRAGMENT_OFFSET);
         put(FRAGMENT, false);
         if (flagMf != null && fragOffset != null) {
-            if (flagMf > 0 || fragOffset > 0) {
+            if (flagMf || fragOffset > 0) {
                 put(FRAGMENT, true);
-                put(LAST_FRAGMENT, (flagMf == 0));
+                put(LAST_FRAGMENT, (!flagMf));
             }
         }
 
@@ -264,6 +327,11 @@ public class JsonPacket extends Packet {
         JsonHelper.addValue(number, this, PROTOCOL, ipV4, JSON_IPV4_PROTOCOL, JsonHelper.ValueTypes.STRING);
     }
 
+    /**
+     * Attepmts to parse IPv6 layer.
+     *
+     * @param ipV6 IPv6 layer of json packet.
+     */
     private void parseIpV6(JsonAdapter ipV6) {
         put(IP_VERSION, IPV6);
         Integer number = (Integer) get(NUMBER);

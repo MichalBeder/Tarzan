@@ -23,26 +23,14 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 
-class ScalaApi {}
+class TSharkScala {}
 
-object ScalaApi {
+object TSharkScala {
 
-    private val Log = LogFactory.getLog(classOf[ScalaApi])
+    private val Log = LogFactory.getLog(classOf[TSharkScala])
     private val Pcap = "pcap"
     private val Cap = "cap"
     private val Json = "json"
-
-    def testFlowkeys(packets: RDD[Packet]): RDD[(String, String, String, String, String)] = {
-        packets.map(x => x.getFlowString)
-            .map(x => {
-                val flowKey = Packet.flowKeyParse(x)
-                val srcAddr = flowKey.getSourceAddress.toStringUtf8
-                val destAddr = flowKey.getDestinationAddress.toStringUtf8
-                val srcPort = flowKey.getSourceSelector.toStringUtf8
-                val destPort = flowKey.getDestinationSelector.toStringUtf8
-                (x, srcAddr, srcPort, destAddr, destPort)
-            })
-    }
 
     /* Flow analysis. */
 
@@ -95,7 +83,7 @@ object ScalaApi {
 
     def getHttpHostnames(packets: RDD[Packet]): RDD[Url] = {
         packets.filter((x: Packet) => Option(x.get(Packet.HTTP_URL)).isDefined)
-        .map(packet => Url(HttpHelper.getHostfromUrl(packet.get(Packet.HTTP_URL).asInstanceOf[String])))
+        .map(packet => Url(HttpHelper.getHostFromUrl(packet.get(Packet.HTTP_URL).asInstanceOf[String])))
     }
 
     def registerHttpHostnames(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
@@ -105,14 +93,14 @@ object ScalaApi {
     }
 
     def getDnsData(packets: RDD[Packet]): RDD[DnsDataRaw] = {
-        packets.filter(x => Option(x.get(Packet.APP_LAYER_PROTOCOL)).getOrElse("").equals(Packet.AppLayerProtocols.DNS))
+        getDnsPackets(packets)
             .filter(x => x.containsKey(Packet.DNS_ID) && x.containsKey(Packet.DNS_IS_RESPONSE))
             .flatMap(x => {
                 val flow: String = x.getFlowString
                 val id: Integer = x.get(Packet.DNS_ID).asInstanceOf[Integer]
                 val isResponse: Boolean = x.get(Packet.DNS_IS_RESPONSE).asInstanceOf[Boolean]
                 val records: Seq[String] = if (isResponse)
-                    x.get(Packet.DNS_ANSWERS).asInstanceOf[util.ArrayList[String]].toSeq
+                        x.get(Packet.DNS_ANSWERS).asInstanceOf[util.ArrayList[String]].toSeq
                     else x.get(Packet.DNS_QUERIES).asInstanceOf[util.ArrayList[String]].toSeq
                 if (records.isEmpty) { records.add("") }
                 records.map(record => DnsDataRaw(flow, id, isResponse, record))
@@ -144,9 +132,41 @@ object ScalaApi {
         kws.toDF().createOrReplaceTempView(viewName)
     }
 
-    //TODO oneskorenie dns
+    def getCipherSuites(packets: RDD[Packet]): RDD[CipherSuite] = {
+        packets.filter(x => x.containsKey(Packet.SSL_CIPHER_SUITES))
+            .flatMap(x => x.get(Packet.SSL_CIPHER_SUITES)
+                .asInstanceOf[util.ArrayList[String]].toSeq
+                .map(x => CipherSuite(x)))
+    }
 
-    //TODO zoradit pakety podla casu
+    def registerCipherSuites(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        import spark.implicits._
+        val cs = getCipherSuites(packets)
+        cs.toDF().createOrReplaceTempView(viewName)
+    }
+
+    def getDnsLatency(packets: RDD[Packet]): RDD[DnsLatency] = {
+        getDnsPackets(packets)
+            .filter(x => x.containsKey(Packet.DNS_ID) && x.containsKey(Packet.DNS_IS_RESPONSE)
+                && x.containsKey(Packet.TIMESTAMP) && x.containsKey(Packet.SRC)
+                && x.containsKey(Packet.DST) && x.containsKey(Packet.DST_PORT))
+            .map(x => (x.getSessionString + x.get(Packet.DNS_ID).asInstanceOf[Int], x))
+            .groupByKey()
+            .map(x => x._2)
+            .filter(x => x.size == 2)
+            .map(x => (x.toSeq.lift(0), x.toSeq.lift(1)))
+            .filter(x => x._1.get(Packet.DNS_IS_RESPONSE).asInstanceOf[Boolean] ^
+                x._2.get(Packet.DNS_IS_RESPONSE).asInstanceOf[Boolean])
+            .map(x => {
+                val address: String = if (x._1.get(Packet.DNS_IS_RESPONSE).asInstanceOf[Boolean])
+                        x._1.get(Packet.SRC).asInstanceOf[String]
+                    else x._1.get(Packet.DST).asInstanceOf[String]
+                val latency = Math.abs(x._1.get(Packet.TIMESTAMP).asInstanceOf[Long] -
+                    x._2.get(Packet.TIMESTAMP).asInstanceOf[Long])
+                DnsLatency(address, latency)
+            })
+    }
+
     def getTcpFlows(packets: RDD[Packet]): RDD[(String, Iterable[TcpPacket])] = {
         val tcpPackets: RDD[TcpPacket] =
             packets.filter(x => Option(x.get(Packet.PROTOCOL)).getOrElse("").equals(Packet.PROTOCOL_TCP)
@@ -160,7 +180,7 @@ object ScalaApi {
                 .map(x => {
                     TcpPacket(
                         x.getFlowString,
-                        new java.sql.Timestamp(Statistics.ticksToDate(x.get(Packet.TIMESTAMP).asInstanceOf[Long]).getTime),
+                        new java.sql.Timestamp(x.get(Packet.TIMESTAMP).asInstanceOf[Long]),
                         x.get(Packet.TCP_FLAG_NS).asInstanceOf[Boolean],
                         x.get(Packet.TCP_FLAG_CWR).asInstanceOf[Boolean],
                         x.get(Packet.TCP_FLAG_ECE).asInstanceOf[Boolean],
@@ -174,7 +194,14 @@ object ScalaApi {
                         x.get(Packet.FRAME_LENGTH).asInstanceOf[Integer],
                         Option(x.get(Packet.TCP_HEX_PAYLOAD)).getOrElse("").asInstanceOf[String])
                 })
-        tcpPackets.map((x: TcpPacket) => (x.flow, x)).groupByKey
+        tcpPackets.map((x: TcpPacket) => (x.flow, x))
+            .groupByKey
+            .mapValues(_.toSeq.sortBy(_.timeStamp.getTime))
+    }
+
+    private def getDnsPackets(packets: RDD[Packet]): RDD[Packet] = {
+        packets.filter(x => Option(x.get(Packet.APP_LAYER_PROTOCOL)).getOrElse("")
+            .equals(Packet.AppLayerProtocols.DNS))
     }
 
     /* Packets - reading and parsing. */

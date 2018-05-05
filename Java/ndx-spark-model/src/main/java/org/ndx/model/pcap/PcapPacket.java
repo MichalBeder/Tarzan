@@ -8,10 +8,9 @@ import org.ndx.model.pcap.PacketModel.RawFrame;
 import java.util.function.Consumer;
 
 public class PcapPacket extends Packet {
-
     private static final long UNIX_BASE_TICKS = 621355968000000000L;
     private static final long TICKS_PER_MILLISECOND = 10000L;
-    
+
     private static final int ETHERNET_HEADER_SIZE = 14;
     private static final int ETHERNET_TYPE_OFFSET = 12;
     private static final int ETHERNET_TYPE_IP = 0x800;
@@ -20,23 +19,23 @@ public class PcapPacket extends Packet {
     private static final int SLL_HEADER_BASE_SIZE = 10; // SLL stands for Linux cooked-mode capture
     private static final int SLL_ADDRESS_LENGTH_OFFSET = 4; // relative to SLL header
     private static final int IPV6_HEADER_SIZE = 40;
-    private static final int IP_VHL_OFFSET = 0;	// relative to start of IP header
-    private static final int IP_TTL_OFFSET = 8;	// relative to start of IP header
-    private static final int IP_TOTAL_LEN_OFFSET = 2;	// relative to start of IP header
+    private static final int IP_VHL_OFFSET = 0;    // relative to start of IP header
+    private static final int IP_TTL_OFFSET = 8;    // relative to start of IP header
+    private static final int IP_TOTAL_LEN_OFFSET = 2;    // relative to start of IP header
     private static final int IPV6_PAYLOAD_LEN_OFFSET = 4; // relative to start of IP header
     private static final int IPV6_HOPLIMIT_OFFSET = 7; // relative to start of IP header
-    private static final int IP_PROTOCOL_OFFSET = 9;	// relative to start of IP header
+    private static final int IP_PROTOCOL_OFFSET = 9;    // relative to start of IP header
     private static final int IPV6_NEXTHEADER_OFFSET = 6; // relative to start of IP header
-    private static final int IP_SRC_OFFSET = 12;	// relative to start of IP header
+    private static final int IP_SRC_OFFSET = 12;    // relative to start of IP header
     private static final int IPV6_SRC_OFFSET = 8; // relative to start of IP header
-    private static final int IP_DST_OFFSET = 16;	// relative to start of IP header
+    private static final int IP_DST_OFFSET = 16;    // relative to start of IP header
     private static final int IPV6_DST_OFFSET = 24; // relative to start of IP header
-    private static final int IP_ID_OFFSET = 4;	// relative to start of IP header
-    private static final int IPV6_ID_OFFSET = 4;	// relative to start of IP header
-    private static final int IP_FLAGS_OFFSET = 6;	// relative to start of IP header
-    private static final int IPV6_FLAGS_OFFSET = 3;	// relative to start of IP header
-    private static final int IP_FRAGMENT_OFFSET = 6;	// relative to start of IP header
-    private static final int IPV6_FRAGMENT_OFFSET = 2;	// relative to start of IP header
+    private static final int IP_ID_OFFSET = 4;    // relative to start of IP header
+    private static final int IPV6_ID_OFFSET = 4;    // relative to start of IP header
+    private static final int IP_FLAGS_OFFSET = 6;    // relative to start of IP header
+    private static final int IPV6_FLAGS_OFFSET = 3;    // relative to start of IP header
+    private static final int IP_FRAGMENT_OFFSET = 6;    // relative to start of IP header
+    private static final int IPV6_FRAGMENT_OFFSET = 2;    // relative to start of IP header
     private static final int PROTOCOL_HEADER_SRC_PORT_OFFSET = 0;
     private static final int PROTOCOL_HEADER_DST_PORT_OFFSET = 2;
     private static final int PROTOCOL_HEADER_TCP_SEQ_OFFSET = 4;
@@ -45,6 +44,7 @@ public class PcapPacket extends Packet {
 
     /**
      * Attempts to parse the input RawFrame into Packet.
+     *
      * @param frame An input frame to be parsed.
      */
     @Override
@@ -52,6 +52,10 @@ public class PcapPacket extends Packet {
         parsePacket(frame, this::processTcpUdpPayload);
     }
 
+    /**
+     * @param frame          Raw frame parsed from pcap file.
+     * @param processPayload Function used to parse application layer payload.
+     */
     public void parsePacket(RawFrame frame, Consumer<PacketPayload> processPayload) {
         byte[] packetData = frame.getData().toByteArray();
         int snapLen = 65535;
@@ -102,8 +106,11 @@ public class PcapPacket extends Packet {
         }
     }
 
-    private void processTcpUdpPayload(PacketPayload p) {
-        byte[] payload = p.getPayload();
+    /**
+     * @param packetPayload Application layer payload.
+     */
+    private void processTcpUdpPayload(PacketPayload packetPayload) {
+        byte[] payload = packetPayload.getPayload();
         if (payload == null || payload.length == 0) {
             put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
             return;
@@ -115,6 +122,9 @@ public class PcapPacket extends Packet {
         put(Packet.APP_LAYER_PROTOCOL, AppLayerProtocols.UNKNOWN);
     }
 
+    /**
+     * @return True if packet contains ssl/tls protocol.
+     */
     private boolean tryParseSslProtocol() {
         Integer src = (Integer) get(SRC_PORT);
         Integer dst = (Integer) get(DST_PORT);
@@ -127,6 +137,10 @@ public class PcapPacket extends Packet {
         return false;
     }
 
+    /**
+     * @param payload Application layer payload.
+     * @return True if payload was successfully parsed.
+     */
     private boolean tryParseHttpProtocol(byte[] payload) {
         HttpPcapParser httpParser = new HttpPcapParser();
         try {
@@ -139,6 +153,9 @@ public class PcapPacket extends Packet {
         return true;
     }
 
+    /**
+     * @return True if payload contains email protocol.
+     */
     private boolean tryParseEmailProtocol() {
         Integer src = (Integer) get(SRC_PORT);
         Integer dst = (Integer) get(DST_PORT);
@@ -162,6 +179,10 @@ public class PcapPacket extends Packet {
         return true;
     }
 
+    /**
+     * @param payload Application layer payload.
+     * @return True if payload was successfully parsed.
+     */
     private boolean tryParseDnsProtocol(byte[] payload) {
         Integer src = (Integer) get(SRC_PORT);
         Integer dst = (Integer) get(DST_PORT);
@@ -180,14 +201,19 @@ public class PcapPacket extends Packet {
         return false;
     }
 
+    /**
+     * @param timeStamp Timestamp from pcap.
+     * @return Ticks converted to time from epoch in milliseconds.
+     */
     private long convertTimeStamp(long timeStamp) {
         return (timeStamp - UNIX_BASE_TICKS) / TICKS_PER_MILLISECOND;
     }
 
     /**
      * This method call function for further processing the content of TCP or UDP segment.
-     * @param payload 			payload of the packet, it is the content of UDP or TCP segment
-     * @param processPayload	function that is called for processing the content. It can be null.
+     *
+     * @param payload        payload of the packet, it is the content of UDP or TCP segment
+     * @param processPayload function that is called for processing the content. It can be null.
      */
     private void processPacketPayload(byte[] payload, Consumer<PacketPayload> processPayload) {
         if (processPayload != null) {
@@ -195,6 +221,11 @@ public class PcapPacket extends Packet {
         }
     }
 
+    /**
+     * @param linkType Link layer protocol.
+     * @param packet   The entire packet data.
+     * @return The starting position of the IP layer in packetData.
+     */
     private int findIPStart(int linkType, byte[] packet) {
         int start;
         switch (linkType) {
@@ -223,6 +254,12 @@ public class PcapPacket extends Packet {
         return -1;
     }
 
+    /**
+     * @param packet                  The entire packet data.
+     * @param ipProtocolHeaderVersion IP header version (4 or 6).
+     * @param ipStart                 The starting position of the IP layer in packetData.
+     * @return IPv4 or IPv6 header length.
+     */
     private int getInternetProtocolHeaderLength(byte[] packet, int ipProtocolHeaderVersion, int ipStart) {
         if (ipProtocolHeaderVersion == 4)
             return (packet[ipStart + IP_VHL_OFFSET] & 0xF) * 4;
@@ -231,15 +268,29 @@ public class PcapPacket extends Packet {
         return -1;
     }
 
+    /**
+     * @param packet  The entire packet data.
+     * @param ipStart The starting position of the IP layer in packet.
+     * @return IP header version (4 or 6).
+     */
     private int getInternetProtocolHeaderVersion(byte[] packet, int ipStart) {
         return (packet[ipStart + IP_VHL_OFFSET] >> 4) & 0xF;
     }
 
+    /**
+     * @param packet   The entire packet data.
+     * @param tcpStart The starting position of the TCP layer in packet.
+     * @return Length of TCP header.
+     */
     private int getTcpHeaderLength(byte[] packet, int tcpStart) {
         int dataOffset = tcpStart + TCP_HEADER_DATA_OFFSET;
         return ((packet[dataOffset] >> 4) & 0xF) * 4;
     }
 
+    /**
+     * @param packetData The entire packet data.
+     * @param ipStart    The starting position of the IP layer in packetData.
+     */
     private void buildInternetProtocolV4Packet(byte[] packetData, int ipStart) {
         long id = (long) BitConverter.convertShort(packetData, ipStart + IP_ID_OFFSET);
         put(ID, id);
@@ -271,6 +322,10 @@ public class PcapPacket extends Packet {
         put(DST, dst);
     }
 
+    /**
+     * @param packetData The entire packet data.
+     * @param ipStart    The starting position of the IP layer in packetData.
+     */
     private void buildInternetProtocolV6Packet(byte[] packetData, int ipStart) {
         int ttl = packetData[ipStart + IPV6_HOPLIMIT_OFFSET] & 0xFF;
         put(TTL, ttl);
@@ -285,6 +340,11 @@ public class PcapPacket extends Packet {
         put(DST, dst);
     }
 
+    /**
+     * @param packetData The entire packet data.
+     * @param ipStart    The starting position of the IP layer in packetData.
+     * @return 0 if packet is not fragmented (IP fragmentation), fragment header extension length else.
+     */
     private int buildInternetProtocolV6ExtensionHeaderFragment(byte[] packetData, int ipStart) {
         if (PROTOCOL_FRAGMENT.equals(get(PROTOCOL))) {
             long id = BitConverter.convertUnsignedInt(packetData, ipStart + IPV6_HEADER_SIZE + IPV6_ID_OFFSET);
@@ -311,9 +371,12 @@ public class PcapPacket extends Packet {
         return 0;
     }
 
-    /*
-     * packetData is the entire layer 2 packet read from pcap
-     * ipStart is the start of the IP packet in packetData
+    /**
+     * @param packetData  The entire layer 2 packet, read from pcap.
+     * @param ipStart     The starting position of the IP layer in packetData.
+     * @param totalLength Length of entire IP packet. Length of layer 3 and higher.
+     * @param snapLen     Max length of captured packets, in bytes (from pcap header).
+     * @return TCP or UDP payload.
      */
     private byte[] buildTcpAndUdpPacket(byte[] packetData, int ipProtocolHeaderVersion, int ipStart,
                                         int ipHeaderLen, int totalLength, int snapLen) {
@@ -323,7 +386,7 @@ public class PcapPacket extends Packet {
                 ipStart + ipHeaderLen + PROTOCOL_HEADER_DST_PORT_OFFSET));
 
         int tcpOrUdpHeaderSize;
-        final String protocol = (String)this.get(PROTOCOL);
+        final String protocol = (String) this.get(PROTOCOL);
         if (PROTOCOL_UDP.equals(protocol)) {
             tcpOrUdpHeaderSize = UDP_HEADER_SIZE;
 
@@ -346,8 +409,8 @@ public class PcapPacket extends Packet {
                     PROTOCOL_HEADER_TCP_ACK_OFFSET));
 
             // Flags stretch two bytes starting at the TCP header offset
-            int flags = BitConverter.convertShort(new byte[] { packetData[ipStart + ipHeaderLen +
-                    TCP_HEADER_DATA_OFFSET], packetData[ipStart + ipHeaderLen + TCP_HEADER_DATA_OFFSET + 1] })
+            int flags = BitConverter.convertShort(new byte[]{packetData[ipStart + ipHeaderLen +
+                    TCP_HEADER_DATA_OFFSET], packetData[ipStart + ipHeaderLen + TCP_HEADER_DATA_OFFSET + 1]})
                     & 0x1FF; // Filter first 7 bits. First 4 are the data offset and the other 3 reserved for future use.
             this.put(TCP_FLAG_NS, (flags & 0x100) != 0);
             this.put(TCP_FLAG_CWR, (flags & 0x80) != 0);
@@ -360,7 +423,7 @@ public class PcapPacket extends Packet {
             this.put(TCP_FLAG_FIN, (flags & 0x1) != 0);
             // The TCP payload size is calculated by taking the "Total Length" from the IP header (ip.len)
             // and then substract the "IP header length" (ip.hdr_len) and the "TCP header length" (tcp.hdr_len).
-            int tcpLen = totalLength-(tcpOrUdpHeaderSize + ipHeaderLen);
+            int tcpLen = totalLength - (tcpOrUdpHeaderSize + ipHeaderLen);
             this.put(PAYLOAD_LEN, tcpLen);
         } else {
             return null;
@@ -371,28 +434,30 @@ public class PcapPacket extends Packet {
         return readPayload(packetData, payloadDataStart, payloadLength, snapLen);
     }
 
+    /**
+     * @param packetData  The entire packet data.
+     * @param ipStart     Position of IP layer.
+     * @param ipHeaderLen Length of IPv4 header.
+     * @return UDP checksum.
+     */
     private int getUdpChecksum(byte[] packetData, int ipStart, int ipHeaderLen) {
-        /*
-         * No Checksum on this packet?
-         */
+        // No Checksum in this packet?
         if (packetData[ipStart + ipHeaderLen + 6] == 0 &&
-            packetData[ipStart + ipHeaderLen + 7] == 0)
+                packetData[ipStart + ipHeaderLen + 7] == 0)
             return -1;
 
-        /*
-         * Build data[] that we can checksum.  Its a pseudo-header
-         * followed by the entire UDP packet.
-         */
+        // Build data[] that we can checksum. Its a pseudo-header
+        // followed by the entire UDP packet.
         byte data[] = new byte[packetData.length - ipStart - ipHeaderLen + 12];
         int sum = 0;
         System.arraycopy(packetData, ipStart + IP_SRC_OFFSET, data, 0, 4);
         System.arraycopy(packetData, ipStart + IP_DST_OFFSET, data, 4, 4);
         data[8] = 0;
-        data[9] = 17;	/* IPPROTO_UDP */
+        data[9] = 17;    /* IPPROTO_UDP */
         System.arraycopy(packetData, ipStart + ipHeaderLen + 4, data, 10, 2);
         System.arraycopy(packetData, ipStart + ipHeaderLen, data, 12,
                 packetData.length - ipStart - ipHeaderLen);
-        for (int i = 0; i<data.length; i++) {
+        for (int i = 0; i < data.length; i++) {
             int j = data[i];
             if (j < 0)
                 j += 256;
@@ -403,6 +468,12 @@ public class PcapPacket extends Packet {
         return (~sum) & 0xffff;
     }
 
+    /**
+     * @param packetData  The entire packet data.
+     * @param ipStart     Position of IP layer.
+     * @param ipHeaderLen Length of IPv4 header.
+     * @return Length of UDP layer.
+     */
     private int getUdpLength(byte[] packetData, int ipStart, int ipHeaderLen) {
         return BitConverter.convertShort(packetData, ipStart + ipHeaderLen + 4);
     }
@@ -410,11 +481,11 @@ public class PcapPacket extends Packet {
     /**
      * Reads the raw packet payload and returns it as byte[].
      * If the payload could not be read an empty byte[] is returned.
-     * @param packetData
-     * @param payloadDataStart
-     * * @param payloadLength
-     * * @param snapLen
-     * @return payload as byte[]
+     *
+     * @param packetData       The entire packet data.
+     * @param payloadDataStart Position of payload data.
+     * @param snapLen          Maximal length of the packet.
+     * @return Payload as byte[].
      */
     private byte[] readPayload(byte[] packetData, int payloadDataStart, int payloadLength, int snapLen) {
         Integer frameNumber = (Integer) get(NUMBER);
@@ -442,4 +513,5 @@ public class PcapPacket extends Packet {
         System.arraycopy(packetData, payloadDataStart, data, 0, payloadLength);
         return data;
     }
+
 }

@@ -4,9 +4,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 
-import org.ndx.pcap.PcapRecordReader;
-import org.ndx.pcap.PcapReader;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -62,9 +59,7 @@ public class PcapInputFormat extends FileInputFormat<LongWritable, ObjectWritabl
                     pcapReaderClass.getConstructor(DataInputStream.class);
             return pcapReaderConstructor.newInstance(stream);
         } catch (Exception e) {
-//            LOG.error(e.getMessage());
             throw new IOException(e);
-//            e.printStackTrace();
         }
     }
 

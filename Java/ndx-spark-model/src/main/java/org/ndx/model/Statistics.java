@@ -12,26 +12,41 @@ import java.util.Date;
 import java.util.Map;
 
 public class Statistics {
-
     private static final Log LOG = LogFactory.getLog(Statistics.class);
 
     private static final long MILISECONDS_TO_SECONDS = 1000L;
-
     private static java.text.DecimalFormat df = new java.text.DecimalFormat("#.###");
 
+    /**
+     * @param ticks Ticks from epoch.
+     * @return Java date.
+     */
     public static Date ticksToDate(long ticks) {
         return new Date(ticks);
     }
 
+    /**
+     * @param timestamp Timestamp in milliseconds.
+     * @return Timestamp in seconds.
+     */
     public static double timestampToSeconds(long timestamp) {
-        return (((double)timestamp) / (double) MILISECONDS_TO_SECONDS);
+        return (((double) timestamp) / (double) MILISECONDS_TO_SECONDS);
     }
 
+    /**
+     * Merges two maps. If both maps contains the same keys, the values associated with these keys
+     * will be added. Warning the first map (map1) will be changed.
+     */
     public static Map<String, Integer> mergeMaps(Map<String, Integer> map1, Map<String, Integer> map2) {
         map2.forEach((k, v) -> map1.merge(k, v, (v1, v2) -> v1 + v2));
         return map1;
     }
 
+    /**
+     * @param srcIp Source IPv4 or IPv6 address.
+     * @param dstIp Destination IPv4 or IPv6 address.
+     * @return True if both source and destination addresses are private.
+     */
     public static String lanOrWan(String srcIp, String dstIp) {
         String lanWan = "wan";
         try {
@@ -45,17 +60,22 @@ public class Statistics {
         return lanWan;
     }
 
+    /**
+     * @param ip IPv4 or IPv6 address.
+     * @return True if input ip address is private.
+     * @throws UnknownHostException In case of malformed address.
+     */
     private static boolean ipAddrPrivate(String ip) throws UnknownHostException {
         boolean isPrivate = false;
         InetAddress address = InetAddress.getByName(ip);
 
         if (address.isAnyLocalAddress() ||
-            address.isLinkLocalAddress() ||
-            address.isLoopbackAddress() ||
-            address.isMCLinkLocal() ||
-            address.isMCNodeLocal() ||
-            address.isMCOrgLocal() ||
-            address.isMCSiteLocal()) {
+                address.isLinkLocalAddress() ||
+                address.isLoopbackAddress() ||
+                address.isMCLinkLocal() ||
+                address.isMCNodeLocal() ||
+                address.isMCOrgLocal() ||
+                address.isMCSiteLocal()) {
             isPrivate = true;
         }
 
@@ -67,6 +87,11 @@ public class Statistics {
         return isPrivate;
     }
 
+    /**
+     * @param srcPort Source port.
+     * @param dstPort Destination port.
+     * @return Email protocol.
+     */
     public static String getEmailProtocol(String srcPort, String dstPort) {
         String email = "";
         if (srcPort.equals(Integer.toString(Packet.POP3_PORT_1)) ||
@@ -93,6 +118,11 @@ public class Statistics {
         return email;
     }
 
+    /**
+     * @param srcPort Source port.
+     * @param dstPort Destination port.
+     * @return Port with lower number.
+     */
     public static String getService(String srcPort, String dstPort) {
         String port = "";
         try {
@@ -103,6 +133,11 @@ public class Statistics {
         return port;
     }
 
+    /**
+     * @param srcPort Source port.
+     * @param dstPort Destination port.
+     * @return "down" if source port has lower value, "up" else.
+     */
     public static String getDirection(String srcPort, String dstPort) {
         String direction = "";
         try {
@@ -113,30 +148,36 @@ public class Statistics {
         return direction;
     }
 
+    /**
+     * Merges flow attributes of two packets.
+     */
     public static FlowAttributes merge(FlowAttributes x, FlowAttributes y) {
-        FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
-        builder.setFirstSeen(Math.min(x.getFirstSeen(),y.getFirstSeen()));
-        builder.setLastSeen(Math.max(x.getLastSeen(),y.getLastSeen()));
+        FlowAttributes.Builder builder = FlowAttributes.newBuilder();
+        builder.setFirstSeen(Math.min(x.getFirstSeen(), y.getFirstSeen()));
+        builder.setLastSeen(Math.max(x.getLastSeen(), y.getLastSeen()));
         builder.setPackets(x.getPackets() + y.getPackets());
         builder.setOctets(x.getOctets() + y.getOctets());
-        builder.setMaximumPayloadSize(Math.max(x.getMaximumPayloadSize(),y.getMaximumPayloadSize()));
-        builder.setMinimumPayloadSize(Math.min(x.getMinimumPayloadSize(),y.getMinimumPayloadSize()));
-        builder.setMeanPayloadSize((x.getMeanPayloadSize() + y.getMeanPayloadSize()) / 2); 
+        builder.setMaximumPayloadSize(Math.max(x.getMaximumPayloadSize(), y.getMaximumPayloadSize()));
+        builder.setMinimumPayloadSize(Math.min(x.getMinimumPayloadSize(), y.getMinimumPayloadSize()));
+        builder.setMeanPayloadSize((x.getMeanPayloadSize() + y.getMeanPayloadSize()) / 2);
         return builder.build();
     }
 
+    /**
+     * Extracts flow attributes from packet.
+     */
     public static FlowAttributes fromPacket(Packet p) {
         Long first = 0L;
         Long last = 0L;
         Long octets = 0L;
         if (p.containsKey(Packet.TIMESTAMP)) {
-            first = ((Number)p.get(Packet.TIMESTAMP)).longValue();
-            last = ((Number)p.get(Packet.TIMESTAMP)).longValue();
+            first = ((Number) p.get(Packet.TIMESTAMP)).longValue();
+            last = ((Number) p.get(Packet.TIMESTAMP)).longValue();
         }
         if (p.containsKey(Packet.FRAME_LENGTH)) {
-            octets = ((Number)p.get(Packet.FRAME_LENGTH)).longValue();
+            octets = ((Number) p.get(Packet.FRAME_LENGTH)).longValue();
         }
-        FlowAttributes.Builder builder  = FlowAttributes.newBuilder();
+        FlowAttributes.Builder builder = FlowAttributes.newBuilder();
         builder.setFirstSeen(first);
         builder.setLastSeen(last);
         builder.setPackets(1);
@@ -147,18 +188,20 @@ public class Statistics {
         return builder.build();
     }
 
-    // Formats 
+    /**
+     * Formats string output from flowkey and flow attributes.
+     */
     public static String format(String flowkey, FlowAttributes attributes) {
         Date first = ticksToDate(attributes.getFirstSeen());
-     
         Date last = ticksToDate(attributes.getLastSeen());
-        float diff = ((float)(last.getTime() - first.getTime()))/1000;
+        float diff = ((float) (last.getTime() - first.getTime())) / 1000;
         FlowKey fkey = Packet.flowKeyParse(flowkey);
-        String fkeystr = String.format("%5s %20s -> %20s ", 
-            fkey.getProtocol().toStringUtf8(), 
-            fkey.getSourceAddress().toStringUtf8() + ":" + fkey.getSourceSelector().toStringUtf8(), 
-            fkey.getDestinationAddress().toStringUtf8() + ":" + fkey.getDestinationSelector().toStringUtf8());
-        return String.format("%30s %12s %60s %10d %15d %5d",first.toString(), df.format(diff), fkeystr,
-                attributes.getPackets(), attributes.getOctets(), 1 );
+        String fkeystr = String.format("%5s %20s -> %20s ",
+                fkey.getProtocol().toStringUtf8(),
+                fkey.getSourceAddress().toStringUtf8() + ":" + fkey.getSourceSelector().toStringUtf8(),
+                fkey.getDestinationAddress().toStringUtf8() + ":" + fkey.getDestinationSelector().toStringUtf8());
+        return String.format("%30s %12s %60s %10d %15d %5d", first.toString(), df.format(diff), fkeystr,
+                attributes.getPackets(), attributes.getOctets(), 1);
     }
+
 }

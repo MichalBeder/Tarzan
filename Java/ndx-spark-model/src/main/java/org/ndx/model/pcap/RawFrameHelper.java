@@ -1,10 +1,10 @@
 package org.ndx.model.pcap;
+
 import com.google.protobuf.ByteString;
 import org.ndx.model.pcap.PacketModel.RawFrame;
 
-public class RawFrameHelper  {
-    public static RawFrame New(int linkType, int frameNumber, int frameLength, long ticks, byte[] rawFrameData)
-    {
+public class RawFrameHelper {
+    public static RawFrame New(int linkType, int frameNumber, int frameLength, long ticks, byte[] rawFrameData) {
         RawFrame.Builder rawFrameBuilder = RawFrame.newBuilder();
         rawFrameBuilder.setLinkTypeValue(linkType);
         rawFrameBuilder.setTimeStamp(ticks);

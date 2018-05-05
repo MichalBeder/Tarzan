@@ -4,9 +4,10 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.ndx.model.Packet;
 import org.ndx.model.json.JsonAdapter;
-import org.ndx.model.json.JsonHelper;
 
+import java.text.ParseException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class SslJsonParser extends AppLayerParser {
 
@@ -26,79 +27,71 @@ public class SslJsonParser extends AppLayerParser {
     //    TLS 1.1                   3,2  0x0302
     //    TLS 1.2                   3,3  0x0303
 
-    private static final String SSL3_CODE = "0x0300";
-    private static final String TLS1_CODE = "0x0301";
-    private static final String TLS11_CODE = "0x0302";
-    private static final String TLS12_CODE = "0x0303";
-
-    private static final String SSL3 = "SSL 3";
-    private static final String TLS1 = "TLS 1";
-    private static final String TLS11 = "TLS 1.1";
-    private static final String TLS12 = "TLS 1.2";
-
     private static final String SSL_JSON_CONTENT_TYPE = "ssl_record_ssl_record_content_type";
     private static final String SSL_JSON_VERSION = "ssl_record_ssl_record_version";
     private static final String SSL_JSON_RECORD_LENGTH = "ssl_record_ssl_record_length";
+    private static final String SSL_JSON_CIPHER_SUITE = "ssl_handshake_ssl_handshake_ciphersuite";
+    private static final String SSL_JSON_NOT_BEFORE_UTC = "x509af_notBefore_x509af_utcTime";
+    private static final String SSL_JSON_NOT_AFTER_UTC = "x509af_notAfter_x509af_utcTime";
 
     public SslJsonParser(Integer packetNo) {
         packetNumber = packetNo != null ? packetNo : 0;
     }
 
-    public SslJsonParser() {}
+    public SslJsonParser() {
+    }
 
-    public ArrayList<HashMap<String, Object>> parse(JsonAdapter payload) {
-        ArrayList<HashMap<String, Object>> records = new ArrayList<>();
+    /**
+     * One json ssl layer may contain more records. This function attempts to extract
+     * all available information. Each type of output is represented by one array.
+     * Output values are independent and cannot be reliably paired together.
+     *
+     * @param payload Ssl/tls payload of json packet.
+     * @return Parsed supported values.
+     */
+    public HashMap<String, ArrayList> parse(JsonAdapter payload) {
+        HashMap<String, ArrayList> records = new HashMap<>();
 
-        if (payload.isString(SSL_JSON_VERSION)) {
+        records.put(Packet.SSL_CONTENT_TYPES, getRecordValues(payload, SSL_JSON_CONTENT_TYPE));
+        records.put(Packet.SSL_VERSIONS, getRecordValues(payload, SSL_JSON_VERSION)
+                .stream().map(SslHelper::decodeSslVersion)
+                .collect(Collectors.toCollection(ArrayList::new)));
+        records.put(Packet.SSL_RECORD_LENGTHS, getRecordValues(payload, SSL_JSON_RECORD_LENGTH));
+        records.put(Packet.SSL_CIPHER_SUITES, getRecordValues(payload, SSL_JSON_CIPHER_SUITE)
+                .stream().map(SslHelper::cipherSuiteDecToString)
+                .collect(Collectors.toCollection(ArrayList::new)));
+
+        Iterator<String> datesBefore = getRecordValues(payload, SSL_JSON_NOT_BEFORE_UTC).iterator();
+        Iterator<String> datesAfter = getRecordValues(payload, SSL_JSON_NOT_AFTER_UTC).iterator();
+        ArrayList<Long> intervals = new ArrayList<>();
+        while (datesBefore.hasNext() && datesAfter.hasNext()) {
+            Date before, after;
             try {
-                HashMap<String, Object> ssl = createRecord(payload.getStringValue(SSL_JSON_VERSION),
-                        payload.getIntValue(SSL_JSON_CONTENT_TYPE), payload.getIntValue(SSL_JSON_RECORD_LENGTH));
-                records.add(ssl);
-            } catch (Exception e) {
-                LOG.warn(Packet.getLogPrefix(packetNumber) + e.getMessage());
+                before = SslHelper.parseDate(datesBefore.next());
+                after = SslHelper.parseDate(datesAfter.next());
+            } catch (ParseException e) {
+                continue;
             }
-        } else if (payload.isArray(SSL_JSON_VERSION)) {
-            try {
-                Iterator<String> itVer = payload.getStringArray(SSL_JSON_VERSION).iterator();
-                Iterator<String> itType = payload.getStringArray(SSL_JSON_CONTENT_TYPE).iterator();
-                Iterator<String> itLen = payload.getStringArray(SSL_JSON_RECORD_LENGTH).iterator();
-
-                while (itVer.hasNext() && itType.hasNext() && itLen.hasNext()) {
-                    int type = JsonHelper.tryGetIntValue(itType.next(), SSL_JSON_CONTENT_TYPE);
-                    int len= JsonHelper.tryGetIntValue(itLen.next(), SSL_JSON_RECORD_LENGTH);
-                    HashMap<String, Object> ssl = createRecord(itVer.next(), type, len);
-                    records.add(ssl);
-                }
-            } catch (IllegalArgumentException e) {
-                LOG.warn(Packet.getLogPrefix(packetNumber) + e.getMessage());
-            }
+            intervals.add(after.getTime() - before.getTime());
         }
+        records.put(Packet.SSL_INTERVALS, intervals);
+
         return records;
     }
 
-    private HashMap<String, Object> createRecord(String version, int contentType, int len) {
-        HashMap<String, Object> record = new HashMap<>();
-        record.put(Packet.SSL_VERSION, decodeSslVersion(version));
-        record.put(Packet.SSL_CONTENT_TYPE, contentType);
-        record.put(Packet.SSL_RECORD_LENGTH, len);
-        return record;
-    }
-
-    private String decodeSslVersion(String hexVersion) {
-        if (hexVersion == null) {
-            return "";
+    /**
+     * @param payload Json ssl payload.
+     * @param key     Key with which is associated with desired value.
+     * @return All values associated with key.
+     */
+    private ArrayList<String> getRecordValues(JsonAdapter payload, String key) {
+        ArrayList<String> values = new ArrayList<>();
+        if (payload.isString(key)) {
+            values.add(payload.getStringValue(key));
+        } else if (payload.isArray(key)) {
+            values = payload.getStringArray(key);
         }
-        switch (hexVersion) {
-            case SSL3_CODE:
-                return SSL3;
-            case TLS1_CODE:
-                return TLS1;
-            case TLS11_CODE:
-                return TLS11;
-            case TLS12_CODE:
-                return TLS12;
-        }
-        return "";
+        return values;
     }
 
 }
