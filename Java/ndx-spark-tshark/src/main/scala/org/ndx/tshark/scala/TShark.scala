@@ -1,4 +1,4 @@
-package org.ndx.tshark
+package org.ndx.tshark.scala
 
 import java.io.IOException
 import java.util
@@ -23,11 +23,11 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable
 
 
-class TSharkScala {}
+class TShark {}
 
-object TSharkScala {
+object TShark {
 
-    private val Log = LogFactory.getLog(classOf[TSharkScala])
+    private val Log = LogFactory.getLog(classOf[TShark])
     private val Pcap = "pcap"
     private val Cap = "cap"
     private val Json = "json"
@@ -35,10 +35,12 @@ object TSharkScala {
     /* Flow analysis. */
 
     def getFlows(packets: RDD[Packet]): RDD[(String, Iterable[Packet])] = {
+        if (isNull(packets)) return null
         packets.map((x: Packet) => (x.getFlowString, x)).groupByKey
     }
 
     def getFlowStatistics(packets: RDD[Packet]): RDD[FlowStatistics] = {
+        if (isNull(packets)) return null
         val stats = packets.filter(x => {
             val protocol = Option(x.get(Packet.PROTOCOL)).getOrElse("")
             (protocol.equals(Packet.PROTOCOL_TCP) || protocol.equals(Packet.PROTOCOL_UDP)) &&
@@ -74,6 +76,7 @@ object TSharkScala {
     }
 
     def registerFlowStatistics(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        if (isNull(viewName, packets, spark)) return
         import spark.implicits._
         val stats = getFlowStatistics(packets)
         stats.toDF().createOrReplaceTempView(viewName)
@@ -82,17 +85,20 @@ object TSharkScala {
     /* Packet content analysis. */
 
     def getHttpHostnames(packets: RDD[Packet]): RDD[Url] = {
+        if (isNull(packets)) return null
         packets.filter((x: Packet) => Option(x.get(Packet.HTTP_URL)).isDefined)
         .map(packet => Url(HttpHelper.getHostFromUrl(packet.get(Packet.HTTP_URL).asInstanceOf[String])))
     }
 
     def registerHttpHostnames(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        if (isNull(viewName, packets, spark)) return
         import spark.implicits._
         val urls = getHttpHostnames(packets)
         urls.toDF().createOrReplaceTempView(viewName)
     }
 
     def getDnsData(packets: RDD[Packet]): RDD[DnsDataRaw] = {
+        if (isNull(packets)) return null
         getDnsPackets(packets)
             .filter(x => x.containsKey(Packet.DNS_ID) && x.containsKey(Packet.DNS_IS_RESPONSE))
             .flatMap(x => {
@@ -108,6 +114,7 @@ object TSharkScala {
     }
 
     def registerDnsData(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        if (isNull(viewName, packets, spark)) return
         import spark.implicits._
         val dnsData = getDnsData(packets).map(x => {
             val splits = x.record.split(",")
@@ -118,6 +125,7 @@ object TSharkScala {
     }
 
     def getKeywords(packets: RDD[Packet], keywords: List[String], sc: SparkContext): RDD[Keyword] = {
+        if (isNull(packets, keywords, sc)) return null
         val javaKeywords = keywords.asJava
         val keywordsMap: mutable.Map[String, Integer] = packets
             .map((x: Packet) => Option(x.findKeyWords(javaKeywords)).getOrElse(new util.HashMap[String, Integer]))
@@ -127,12 +135,14 @@ object TSharkScala {
 
     def registerKeywords(viewName: String, packets: RDD[Packet], keywords: List[String],
                          spark: SparkSession, sc: SparkContext): Unit = {
+        if (isNull(viewName, packets, keywords, spark, sc)) return
         import spark.implicits._
         val kws = getKeywords(packets, keywords, sc)
         kws.toDF().createOrReplaceTempView(viewName)
     }
 
     def getCipherSuites(packets: RDD[Packet]): RDD[CipherSuite] = {
+        if (isNull(packets)) return null
         packets.filter(x => x.containsKey(Packet.SSL_CIPHER_SUITES))
             .flatMap(x => x.get(Packet.SSL_CIPHER_SUITES)
                 .asInstanceOf[util.ArrayList[String]].toSeq
@@ -140,12 +150,14 @@ object TSharkScala {
     }
 
     def registerCipherSuites(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        if (isNull(viewName, packets, spark)) return
         import spark.implicits._
         val cs = getCipherSuites(packets)
         cs.toDF().createOrReplaceTempView(viewName)
     }
 
     def getDnsLatency(packets: RDD[Packet]): RDD[DnsLatency] = {
+        if (isNull(packets)) return null
         getDnsPackets(packets)
             .filter(x => x.containsKey(Packet.DNS_ID) && x.containsKey(Packet.DNS_IS_RESPONSE)
                 && x.containsKey(Packet.TIMESTAMP) && x.containsKey(Packet.SRC)
@@ -167,7 +179,15 @@ object TSharkScala {
             })
     }
 
+    def registerDnsLatency(viewName: String, packets: RDD[Packet], spark: SparkSession): Unit = {
+        if (isNull(viewName, packets, spark)) return
+        import spark.implicits._
+        val lat = getDnsLatency(packets)
+        lat.toDF().createOrReplaceTempView(viewName)
+    }
+
     def getTcpFlows(packets: RDD[Packet]): RDD[(String, Iterable[TcpPacket])] = {
+        if (isNull(packets)) return null
         val tcpPackets: RDD[TcpPacket] =
             packets.filter(x => Option(x.get(Packet.PROTOCOL)).getOrElse("").equals(Packet.PROTOCOL_TCP)
                 && !Option(x.get(Packet.FRAGMENT)).getOrElse(true).asInstanceOf[Boolean]
@@ -204,6 +224,12 @@ object TSharkScala {
             .equals(Packet.AppLayerProtocols.DNS))
     }
 
+    private def isNull(args: Any*): Boolean = {
+        val isNull = args.count(arg => arg == null) != 0
+        if (isNull) Log.error("Input params should not be null.")
+        isNull
+    }
+
     /* Packets - reading and parsing. */
 
     def getPackets(sc: SparkContext, path: String): RDD[Packet] = {
@@ -211,8 +237,8 @@ object TSharkScala {
         try
             packets = readInputFiles(sc, path)
         catch {
-            case io: IOException =>
-                Log.error(io.getMessage)
+            case io: IOException => Log.error(io.getMessage)
+            case e: Exception => Log.error(e.getMessage)
         }
         packets
     }

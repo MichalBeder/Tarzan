@@ -1,4 +1,4 @@
-package org.ndx.tshark
+package org.ndx.tshark.scala
 
 case class Url(url:String)
 

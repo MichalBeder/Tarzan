@@ -1,4 +1,4 @@
-package org.ndx.tshark;
+package org.ndx.tshark.java;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -19,8 +19,8 @@ import scala.Tuple2;
 
 import java.io.IOException;
 
-public class TSharkJava {
-    private static final Log LOG = LogFactory.getLog(TSharkJava.class);
+public class TShark {
+    private static final Log LOG = LogFactory.getLog(TShark.class);
     private static final String PCAP = "pcap";
     private static final String CAP = "cap";
     private static final String JSON = "json";

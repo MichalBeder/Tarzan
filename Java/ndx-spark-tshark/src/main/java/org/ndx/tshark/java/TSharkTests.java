@@ -1,4 +1,4 @@
-package org.ndx.tshark;
+package org.ndx.tshark.java;
 
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -13,10 +13,10 @@ import java.util.ArrayList;
 import static org.ndx.model.Statistics.timestampToSeconds;
 
 @SuppressWarnings("unchecked")
-public class TSharkJavaTests {
+public class TSharkTests {
 
     public static JavaPairRDD<String, ConversationModel.FlowAttributes> testFlows(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return null;
 
         JavaPairRDD<String, Packet> flows = packets.mapToPair(x -> new Tuple2<>(x.getFlowString(), x));
@@ -24,7 +24,7 @@ public class TSharkJavaTests {
     }
 
     public static void testPacketInfo(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
 
         ConversationModel.FlowAttributes capinfo = packets.map(Statistics::fromPacket).reduce(Statistics::merge);
@@ -41,12 +41,13 @@ public class TSharkJavaTests {
     }
 
     public static void testHttpData(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
+
         packets.collect().forEach(x -> {
             if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.HTTP)
                 return;
-            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
+            System.out.println("Packet number: " + x.get(Packet.NUMBER));
             boolean isResponse = (boolean) x.get(Packet.HTTP_IS_RESPONSE);
             if (isResponse) {
                 System.out.println("Req/Res: Response");
@@ -61,12 +62,13 @@ public class TSharkJavaTests {
     }
 
     public static void testTcpPayload(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
+
         packets.collect().forEach(x -> {
             if (!x.get(Packet.PROTOCOL).equals(Packet.PROTOCOL_TCP))
                 return;
-            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
+            System.out.println("Packet number: " + x.get(Packet.NUMBER));
             String payload = (String) x.get(Packet.TCP_HEX_PAYLOAD);
             if (payload != null) {
                 System.out.println(payload);
@@ -76,12 +78,13 @@ public class TSharkJavaTests {
     }
 
     public static void testIpv6Packets(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
+
         packets.collect().forEach(x -> {
             if ((Integer) x.get(Packet.IP_VERSION) != 6)
                 return;
-            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
+            System.out.println("Packet number: " + x.get(Packet.NUMBER));
             String protocol = (String) x.get(Packet.PROTOCOL);
             System.out.println("Protocol: " + protocol);
             if ((boolean) x.get(Packet.FRAGMENT)) {
@@ -94,13 +97,14 @@ public class TSharkJavaTests {
     }
 
     public static void testDnsData(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
+
         packets.collect().forEach(x -> {
             if (x.get(Packet.APP_LAYER_PROTOCOL) != Packet.AppLayerProtocols.DNS) {
                 return;
             }
-            System.out.println("Packet number: " + (int) x.get(Packet.NUMBER));
+            System.out.println("Packet number: " + x.get(Packet.NUMBER));
             String qOrR = "Query";
             if ((boolean) x.get(Packet.DNS_IS_RESPONSE)) {
                 qOrR = "Response";
@@ -122,8 +126,9 @@ public class TSharkJavaTests {
     }
 
     public static void testAppProtocols(JavaSparkContext sc, String path) {
-        JavaRDD<Packet> packets = TSharkJava.getPackets(sc, path);
+        JavaRDD<Packet> packets = TShark.getPackets(sc, path);
         if (packets == null) return;
+
         packets.collect().forEach(x -> {
             Packet.AppLayerProtocols protocol = (Packet.AppLayerProtocols)x.get(Packet.APP_LAYER_PROTOCOL);
             Integer no = (Integer) x.get(Packet.NUMBER);
