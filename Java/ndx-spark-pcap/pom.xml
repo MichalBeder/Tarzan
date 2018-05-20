@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.ndx.spark</groupId>
         <artifactId>ndx-spark</artifactId>
-        <version>0.9-SNAPSHOT</version>
+        <version>1.0</version>
     </parent>
 
     <properties>
@@ -20,7 +20,7 @@
         <dependency>
             <groupId>org.ndx.spark</groupId>
             <artifactId>ndx-spark-model</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>

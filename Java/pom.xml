@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.ndx.spark</groupId>
     <artifactId>ndx-spark</artifactId>
-    <version>0.9-SNAPSHOT</version>
+    <version>1.0</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -50,22 +50,6 @@
             <id>cloudera-cdh-build</id>
             <url>https://repository.cloudera.com/content/groups/cdh-build</url>
         </repository>
-        <!--<repository>-->
-            <!--<id>local-repo</id>-->
-            <!--<url>http://www.fit.vutbr.cz/~rysavy/maven</url>-->
-        <!--</repository>-->
     </repositories>
 
-    <!--<pluginRepositories>-->
-        <!--<pluginRepository>-->
-            <!--<id>local-repo</id>-->
-            <!--<url>http://www.fit.vutbr.cz/~rysavy/maven</url>-->
-            <!--<releases>-->
-                <!--<enabled>true</enabled>-->
-            <!--</releases>-->
-            <!--<snapshots>-->
-                <!--<enabled>true</enabled>-->
-            <!--</snapshots>-->
-        <!--</pluginRepository>-->
-    <!--</pluginRepositories>-->
 </project>

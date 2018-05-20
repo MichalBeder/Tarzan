@@ -2,30 +2,30 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <artifactId>ndx-spark-shell</artifactId>
-    <version>0.9-SNAPSHOT</version>
+    <version>1.0</version>
     <packaging>jar</packaging>
 
     <parent>
         <groupId>org.ndx.spark</groupId>
         <artifactId>ndx-spark</artifactId>
-        <version>0.9-SNAPSHOT</version>
+        <version>1.0</version>
     </parent>
 
     <dependencies>
         <dependency>
             <groupId>org.ndx.spark</groupId>
             <artifactId>ndx-spark-model</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>org.ndx.spark</groupId>
             <artifactId>ndx-spark-pcap</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>org.ndx.spark</groupId>
             <artifactId>ndx-spark-tshark</artifactId>
-            <version>0.9-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
     </dependencies>
 
